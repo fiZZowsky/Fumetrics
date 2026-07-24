@@ -1,0 +1,33 @@
+﻿syntax = "proto3";
+
+package fumetrics;
+
+option csharp_namespace = "Fumetrics.Contracts";
+
+service TelemetryIngestion {
+  rpc SendLogs (LogBatchRequest) returns (LogBatchResponse);
+}
+
+enum LogLevel {
+  INFO = 0;
+  WARNING = 1;
+  ERROR = 2;
+  CRITICAL = 3;
+}
+
+message LogEntry {
+  string timestamp = 1;
+  string service_name = 2;
+  LogLevel level = 3;
+  string message = 4;
+  map<string, string> tags = 5;
+}
+
+message LogBatchRequest {
+  repeated LogEntry logs = 1;
+}
+
+message LogBatchResponse {
+  bool success = 1;
+  int32 processed_count = 2;
+}
