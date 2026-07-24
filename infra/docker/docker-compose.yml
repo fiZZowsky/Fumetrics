@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fumetrics-postgres
+    environment:
+      POSTGRES_USER: fumetrics_user
+      POSTGRES_PASSWORD: fumetrics_password
+      POSTGRES_DB: fumetrics_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    container_name: fumetrics-clickhouse
+    environment:
+      CLICKHOUSE_DB: fumetrics_metrics
+      CLICKHOUSE_USER: fumetrics_user
+      CLICKHOUSE_PASSWORD: fumetrics_password
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "8123:8123" # Interfejs HTTP
+      - "9000:9000" # Interfejs natywny dla .NET
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: fumetrics-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  clickhouse_data:
+  redis_data:
