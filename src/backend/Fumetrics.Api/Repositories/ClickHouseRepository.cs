@@ -267,4 +267,60 @@ public class ClickHouseRepository
 
         return statuses;
     }
+
+    public async Task<IEnumerable<AgentHardwareHistoryDto>> GetAgentHardwareHistoryAsync(string machineName, string range = "1h")
+    {
+        var history = new List<AgentHardwareHistoryDto>();
+
+        string groupingFunction = range switch
+        {
+            "30d" => "toStartOfDay(Timestamp)",
+            "24h" => "toStartOfHour(Timestamp)",
+            _ => "toStartOfMinute(Timestamp)"
+        };
+
+        string timeFormat = range switch
+        {
+            "30d" => "'%Y-%m-%d'",
+            "24h" => "'%m-%d %H:%i'",
+            _ => "'%H:%i'"
+        };
+
+        string timeFilter = range switch
+        {
+            "30d" => "INTERVAL 30 DAY",
+            "24h" => "INTERVAL 24 HOUR",
+            _ => "INTERVAL 1 HOUR"
+        };
+
+        var sql = $@"
+            SELECT 
+                formatDateTime({groupingFunction}, {timeFormat}) as Time,
+                avg(MachineCpu),
+                avg(MachineRam),
+                avg(MachineDisk)
+            FROM agent_metrics
+            WHERE MachineName = '{machineName}' 
+              AND Timestamp >= now() - {timeFilter}
+            GROUP BY {groupingFunction}
+            ORDER BY {groupingFunction} ASC";
+
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            history.Add(new AgentHardwareHistoryDto
+            {
+                Timestamp = reader.GetString(0),
+                Cpu = Math.Round(Convert.ToDouble(reader.GetValue(1)), 2),
+                Ram = Math.Round(Convert.ToDouble(reader.GetValue(2)), 2),
+                Disk = Math.Round(Convert.ToDouble(reader.GetValue(3)), 2)
+            });
+        }
+
+        return history;
+    }
 }
