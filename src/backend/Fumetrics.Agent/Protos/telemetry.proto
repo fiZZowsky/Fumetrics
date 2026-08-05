@@ -53,9 +53,12 @@ message AgentStatusRequest {
   string machine_name = 1;
   string os_version = 2;
   repeated SystemServiceInfo services = 3;
+
+  double cpu_usage_percent = 4;
+  double ram_usage_percent = 5;
+  double disk_usage_percent = 6;
 }
 
 message AgentStatusResponse {
   bool success = 1;
-  // W przyszłości możemy tu odsyłać komendy, np. "Zrestartuj ten serwis!"
 }

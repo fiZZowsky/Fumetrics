@@ -12,6 +12,6 @@
     <PackageReference Include="Grpc.AspNetCore.Server.Reflection" Version="2.80.0" />
   </ItemGroup>
   <ItemGroup>
-    <Protobuf Include="..\..\protos\telemetry.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\telemetry.proto" GrpcServices="Server" />
   </ItemGroup>
 </Project>

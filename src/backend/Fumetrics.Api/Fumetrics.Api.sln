@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.Api", "Fumetrics.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.Simulator", "..\Fumetrics.Simulator\Fumetrics.Simulator.csproj", "{3163E91A-F558-4986-8670-3E7E993D97DD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.Agent", "..\Fumetrics.Agent\Fumetrics.Agent.csproj", "{FFC8737B-3901-413A-AFF9-D64BC0BA7D13}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{3163E91A-F558-4986-8670-3E7E993D97DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3163E91A-F558-4986-8670-3E7E993D97DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3163E91A-F558-4986-8670-3E7E993D97DD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FFC8737B-3901-413A-AFF9-D64BC0BA7D13}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FFC8737B-3901-413A-AFF9-D64BC0BA7D13}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FFC8737B-3901-413A-AFF9-D64BC0BA7D13}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FFC8737B-3901-413A-AFF9-D64BC0BA7D13}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

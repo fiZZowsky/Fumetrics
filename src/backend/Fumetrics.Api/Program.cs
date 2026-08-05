@@ -11,13 +11,12 @@ builder.Services.AddSignalR();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
+    options.AddPolicy("AllowAll",
+            builder => builder
+                .SetIsOriginAllowed(origin => true)
+                .AllowAnyMethod()
+                .AllowAnyHeader()
+                .AllowCredentials());
 });
 
 var app = builder.Build();
@@ -25,7 +24,7 @@ var app = builder.Build();
 var repository = app.Services.GetRequiredService<ClickHouseRepository>();
 await repository.EnsureTableExistsAsync();
 
-app.UseCors("AllowFrontend");
+app.UseCors("AllowAll");
 
 app.MapGrpcService<TelemetryService>();
 app.MapHub<TelemetryHub>("/hubs/telemetry");
@@ -51,6 +50,12 @@ app.MapGet("/api/metrics/latest", async (ClickHouseRepository repo) =>
 {
     var logs = await repo.GetLatestLogsAsync(50);
     return Results.Ok(logs);
+});
+
+app.MapGet("/api/metrics/agents", async (ClickHouseRepository repo) =>
+{
+    var agents = await repo.GetLatestAgentStatusAsync();
+    return Results.Ok(agents);
 });
 
 app.MapGet("/", () => "Serwer gRPC działa.");
