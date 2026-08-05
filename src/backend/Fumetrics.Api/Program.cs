@@ -58,6 +58,12 @@ app.MapGet("/api/metrics/agents", async (ClickHouseRepository repo) =>
     return Results.Ok(agents);
 });
 
+app.MapGet("/api/metrics/agents/{machineName}/history", async (string machineName, string? range, ClickHouseRepository repo) =>
+{
+    var history = await repo.GetAgentHardwareHistoryAsync(machineName, range ?? "1h");
+    return Results.Ok(history);
+});
+
 app.MapGet("/", () => "Serwer gRPC działa.");
 
 app.Run();
