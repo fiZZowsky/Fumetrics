@@ -33,4 +33,23 @@ public class TelemetryService : TelemetryIngestion.TelemetryIngestionBase
             ProcessedCount = request.Logs.Count
         };
     }
+
+    public override async Task<AgentStatusResponse> SendAgentStatus(AgentStatusRequest request, ServerCallContext context)
+    {
+        try
+        {
+            await _repository.InsertAgentMetricsAsync(request);
+
+            _logger.LogInformation("Zapisano status {Count} usług z maszyny {Machine}", request.Services.Count, request.MachineName);
+
+            await _hubContext.Clients.All.SendAsync("AgentDataUpdated");
+
+            return new AgentStatusResponse { Success = true };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Błąd podczas przetwarzania statusu agenta.");
+            return new AgentStatusResponse { Success = false };
+        }
+    }
 }
