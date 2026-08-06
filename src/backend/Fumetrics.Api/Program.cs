@@ -1,6 +1,7 @@
 using Fumetrics.Api.Hubs;
 using Fumetrics.Api.Repositories;
 using Fumetrics.Api.Services;
+using Microsoft.AspNetCore.Mvc;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -64,6 +65,32 @@ app.MapGet("/api/metrics/agents/{machineName}/history", async (string machineNam
     return Results.Ok(history);
 });
 
+app.MapGet("/api/metrics/agents/{machineName}/services/{serviceName}/history", async (string machineName, string serviceName, string? range, ClickHouseRepository repo) =>
+{
+    var history = await repo.GetServiceHardwareHistoryAsync(machineName, serviceName, range ?? "1h");
+    return Results.Ok(history);
+});
+
+app.MapGet("/api/metrics/agents/{machineName}/config-services", async (string machineName, ClickHouseRepository repo) =>
+{
+    var services = await repo.GetMonitoredServicesForMachineAsync(machineName);
+    return Results.Ok(services);
+});
+
+app.MapPost("/api/metrics/agents/config-services", async ([FromBody] AddServiceRequest req, [FromServices] ClickHouseRepository repo) =>
+{
+    await repo.AddMonitoredServiceAsync(req.MachineName, req.ServiceName);
+    return Results.Ok(new { success = true });
+});
+
+app.MapPost("/api/metrics/agents/config-services/remove", async ([FromBody] AddServiceRequest req, [FromServices] ClickHouseRepository repo) =>
+{
+    await repo.RemoveMonitoredServiceAsync(req.MachineName, req.ServiceName);
+    return Results.Ok(new { success = true });
+});
+
 app.MapGet("/", () => "Serwer gRPC działa.");
 
 app.Run();
+
+record AddServiceRequest(string MachineName, string ServiceName);

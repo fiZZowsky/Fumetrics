@@ -6,6 +6,9 @@
         public string OsVersion { get; set; } = string.Empty;
         public string ServiceName { get; set; } = string.Empty;
         public string State { get; set; } = string.Empty;
+        public double ServiceCpu { get; set; }
+        public double ServiceRam { get; set; }
+        public double ServiceDisk { get; set; }
         public string LastUpdated { get; set; } = string.Empty;
 
         public double MachineCpu { get; set; }

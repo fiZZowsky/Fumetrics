@@ -1,25 +1,29 @@
 using Fumetrics.Agent;
 using Fumetrics.Agent.Services.Interfaces;
-using System.Runtime.InteropServices;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
 
-var host = Host.CreateDefaultBuilder(args)
-    .ConfigureServices((hostContext, services) =>
+var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
+
+builder.Services.AddSingleton<ISystemService, WindowsSystemMonitor>();
+builder.Services.AddHostedService<AgentWorker>();
+
+builder.Services.AddCors(options =>
+    options.AddPolicy("AllowAll", p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader())
+);
+
+var app = builder.Build();
+
+app.UseCors("AllowAll");
+
+app.MapGet("/api/agent/services", async (ISystemService systemMonitor) =>
+{
+    if (systemMonitor is WindowsSystemMonitor winMonitor)
     {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            services.AddSingleton<ISystemService, WindowsSystemMonitor>();
-        }
-        // else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        // {
-        //     services.AddSingleton<ISystemService, LinuxSystemMonitor>();
-        // }
-        else
-        {
-            throw new PlatformNotSupportedException("OS not supported by Fumetrics Agent");
-        }
+        var services = await winMonitor.GetAllServicesWithDetailsAsync();
+        return Results.Ok(services);
+    }
+    return Results.BadRequest("Nieobsługiwany system operacyjny.");
+});
 
-        services.AddHostedService<AgentWorker>();
-    })
-    .Build();
-
-host.Run();
+app.Run("http://0.0.0.0:5001");

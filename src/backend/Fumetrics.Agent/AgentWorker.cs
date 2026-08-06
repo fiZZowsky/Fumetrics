@@ -1,6 +1,7 @@
 using Fumetrics.Agent.Services.Interfaces;
 using Fumetrics.Contracts;
 using Grpc.Net.Client;
+using System.Net.Http.Json;
 
 namespace Fumetrics.Agent;
 
@@ -19,21 +20,26 @@ public class AgentWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var backendUrl = _configuration["Fumetrics:BackendUrl"] ?? "http://localhost:5241";
-        using var channel = GrpcChannel.ForAddress(backendUrl);
-        var client = new TelemetryIngestion.TelemetryIngestionClient(channel);
-
+        var backendUrl = _configuration["Fumetrics:BackendUrl"] ?? "https://localhost:7161";
         var machineName = Environment.MachineName;
         var osVersion = Environment.OSVersion.ToString();
 
         _logger.LogInformation("Fumetrics Agent uruchomiony na {MachineName} ({OS}). Łączenie z: {Backend}", machineName, osVersion, backendUrl);
 
+        using var channel = GrpcChannel.ForAddress(backendUrl);
+        var grpcClient = new TelemetryIngestion.TelemetryIngestionClient(channel);
+        using var httpClient = new HttpClient();
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                var servicesToMonitor = _configuration.GetSection("Fumetrics:MonitoredServices").Get<string[]>() ?? Array.Empty<string>();
+                var serviceNames = await httpClient.GetFromJsonAsync<string[]>(
+                    $"{backendUrl}/api/metrics/agents/{machineName}/config-services",
+                    stoppingToken) ?? new[] { "Spooler" };
+
                 var hwMetrics = await _systemMonitor.GetHardwareMetricsAsync();
+                var allServices = await _systemMonitor.GetAllServicesWithDetailsAsync();
 
                 var request = new AgentStatusRequest
                 {
@@ -44,22 +50,45 @@ public class AgentWorker : BackgroundService
                     DiskUsagePercent = hwMetrics.Disk
                 };
 
-                foreach (var serviceName in servicesToMonitor)
+                foreach (var serviceName in serviceNames)
                 {
-                    var state = await _systemMonitor.GetServiceStateAsync(serviceName);
-
-                    request.Services.Add(new SystemServiceInfo
+                    var srv = allServices.FirstOrDefault(s => s.ServiceName.Equals(serviceName, StringComparison.OrdinalIgnoreCase));
+                    if (srv != null)
                     {
-                        ServiceName = serviceName,
-                        State = state,
-                        CpuUsagePercent = 0,
-                        MemoryUsageBytes = 0
-                    });
+                        var mappedState = srv.State switch
+                        {
+                            "Running" => ServiceState.Running,
+                            "Stopped" => ServiceState.Stopped,
+                            "StartPending" => ServiceState.Starting,
+                            "StopPending" => ServiceState.Stopping,
+                            _ => ServiceState.Unknown
+                        };
+
+                        request.Services.Add(new SystemServiceInfo
+                        {
+                            ServiceName = srv.ServiceName,
+                            State = mappedState,
+                            CpuUsage = srv.CpuUsage,
+                            RamUsage = srv.RamUsage,
+                            DiskUsage = srv.DiskUsage
+                        });
+                    }
+                    else
+                    {
+                        request.Services.Add(new SystemServiceInfo
+                        {
+                            ServiceName = serviceName,
+                            State = ServiceState.Unknown,
+                            CpuUsage = 0,
+                            RamUsage = 0,
+                            DiskUsage = 0
+                        });
+                    }
                 }
 
                 if (request.Services.Count > 0)
                 {
-                    var response = await client.SendAgentStatusAsync(request, cancellationToken: stoppingToken);
+                    await grpcClient.SendAgentStatusAsync(request, cancellationToken: stoppingToken);
                     _logger.LogInformation("Pomyślnie wysłano status {Count} usług do centrali.", request.Services.Count);
                 }
             }
