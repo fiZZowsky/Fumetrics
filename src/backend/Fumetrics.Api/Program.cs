@@ -89,8 +89,29 @@ app.MapPost("/api/metrics/agents/config-services/remove", async ([FromBody] AddS
     return Results.Ok(new { success = true });
 });
 
+
+app.MapGet("/api/metrics/saved-servers", async (ClickHouseRepository repo) =>
+{
+    var servers = await repo.GetSavedServersAsync();
+    return Results.Ok(servers);
+});
+
+app.MapPost("/api/metrics/saved-servers", async ([FromBody] SavedServerRequest req, [FromServices] ClickHouseRepository repo) =>
+{
+    await repo.AddSavedServerAsync(req.MachineName, req.IpAddress, req.Port);
+    return Results.Ok(new { success = true });
+});
+
+app.MapPost("/api/metrics/saved-servers/remove", async ([FromBody] SavedServerRequest req, [FromServices] ClickHouseRepository repo) =>
+{
+    await repo.RemoveSavedServerAsync(req.MachineName, req.IpAddress, req.Port);
+    return Results.Ok(new { success = true });
+});
+
+
 app.MapGet("/", () => "Serwer gRPC działa.");
 
 app.Run();
 
 record AddServiceRequest(string MachineName, string ServiceName);
+record SavedServerRequest(string MachineName, string IpAddress, string Port);
