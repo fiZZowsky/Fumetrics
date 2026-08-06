@@ -81,6 +81,61 @@ public class ClickHouseRepository
             ORDER BY (MachineName, ServiceName)";
         command.CommandText = createConfigTableSql;
         await command.ExecuteNonQueryAsync();
+
+        var createSavedServersTableSql = @"
+            CREATE TABLE IF NOT EXISTS saved_servers (
+                MachineName String,
+                IpAddress String,
+                Port String
+            ) ENGINE = ReplacingMergeTree()
+            ORDER BY (MachineName, IpAddress, Port)";
+        command.CommandText = createSavedServersTableSql;
+        await command.ExecuteNonQueryAsync();
+    }
+
+    public async Task<IEnumerable<SavedServerDto>> GetSavedServersAsync()
+    {
+        var servers = new List<SavedServerDto>();
+        var sql = "SELECT DISTINCT MachineName, IpAddress, Port FROM saved_servers";
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            servers.Add(new SavedServerDto
+            {
+                MachineName = reader.GetString(0),
+                IpAddress = reader.GetString(1),
+                Port = reader.GetString(2)
+            });
+        }
+        return servers;
+    }
+
+    public async Task AddSavedServerAsync(string machineName, string ipAddress, string port)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        var checkSql = $"SELECT count() FROM saved_servers WHERE MachineName = '{machineName}' AND IpAddress = '{ipAddress}' AND Port = '{port}'";
+        using var checkCmd = connection.CreateCommand();
+        checkCmd.CommandText = checkSql;
+        var count = Convert.ToInt64(await checkCmd.ExecuteScalarAsync());
+        if (count == 0)
+        {
+            var insertSql = $"INSERT INTO saved_servers (MachineName, IpAddress, Port) VALUES ('{machineName}', '{ipAddress}', '{port}')";
+            using var insertCmd = connection.CreateCommand();
+            insertCmd.CommandText = insertSql;
+            await insertCmd.ExecuteNonQueryAsync();
+        }
+    }
+
+    public async Task RemoveSavedServerAsync(string machineName, string ipAddress, string port)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        var deleteSql = $"ALTER TABLE saved_servers DELETE WHERE MachineName = '{machineName}' AND IpAddress = '{ipAddress}' AND Port = '{port}'";
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = deleteSql;
+        await cmd.ExecuteNonQueryAsync();
     }
 
     public async Task<IEnumerable<object>> GetLogsSummaryAsync()
