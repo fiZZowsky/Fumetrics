@@ -2,9 +2,12 @@
 using Fumetrics.Agent.Services.Interfaces;
 using Fumetrics.Contracts;
 using System.Diagnostics;
+using System.Management;
 using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.ServiceProcess;
 
+[SupportedOSPlatform("windows")]
 public class WindowsSystemMonitor : ISystemService
 {
     private readonly PerformanceCounter _cpuCounter;
@@ -35,27 +38,90 @@ public class WindowsSystemMonitor : ISystemService
         _diskActivityCounter = new PerformanceCounter("PhysicalDisk", "% Disk Time", "_Total");
         _cpuCounter.NextValue();
         _diskActivityCounter.NextValue();
-
         _totalRamMb = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024;
+    }
+
+    public async Task<bool> StartServiceAsync(string serviceName)
+    {
+        try
+        {
+            using var sc = new ServiceController(serviceName);
+            if (sc.Status == ServiceControllerStatus.Stopped)
+            {
+                sc.Start();
+                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10));
+                return true;
+            }
+            return false;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> StopServiceAsync(string serviceName)
+    {
+        try
+        {
+            using var sc = new ServiceController(serviceName);
+            if (sc.Status == ServiceControllerStatus.Running)
+            {
+                sc.Stop();
+                sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+                return true;
+            }
+            return false;
+        }
+        catch { return false; }
+    }
+
+    public async Task<bool> RestartServiceAsync(string serviceName)
+    {
+        try
+        {
+            using var sc = new ServiceController(serviceName);
+            if (sc.Status == ServiceControllerStatus.Running)
+            {
+                sc.Stop();
+                sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+            }
+            sc.Start();
+            sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10));
+            return true;
+        }
+        catch { return false; }
     }
 
     public Task<List<SystemServiceDetail>> GetAllServicesWithDetailsAsync()
     {
         var list = new List<SystemServiceDetail>();
+        var servicePids = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        try
+        {
+            using var searcher = new ManagementObjectSearcher("SELECT Name, ProcessId FROM Win32_Service");
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                var name = obj["Name"]?.ToString();
+                if (name != null && int.TryParse(obj["ProcessId"]?.ToString(), out int p))
+                {
+                    servicePids[name] = p;
+                }
+            }
+        }
+        catch { }
 
         foreach (var sc in ServiceController.GetServices())
         {
-            int pid = 0;
             double cpu = 0;
             double ram = 0;
             double disk = 0;
 
-            try
+            servicePids.TryGetValue(sc.ServiceName, out int pid);
+
+            if (pid > 0)
             {
-                var process = Process.GetProcessesByName(sc.ServiceName).FirstOrDefault();
-                if (process != null)
+                try
                 {
-                    pid = process.Id;
+                    var process = Process.GetProcessById(pid);
                     ram = Math.Round(process.WorkingSet64 / (1024.0 * 1024.0), 2);
 
                     ulong currentIo = 0;
@@ -78,7 +144,6 @@ public class WindowsSystemMonitor : ISystemService
                         {
                             var cpuPassed = (cpuTime - last.CpuTime).TotalMilliseconds;
                             cpu = Math.Round((cpuPassed / (Environment.ProcessorCount * timePassed)) * 100.0, 2);
-
                             var ioPassed = currentIo - last.IoBytes;
                             var bytesPerSec = ioPassed / (timePassed / 1000.0);
                             disk = Math.Round(bytesPerSec / (1024.0 * 1024.0), 2);
@@ -86,8 +151,8 @@ public class WindowsSystemMonitor : ISystemService
                     }
                     _processTracking[pid] = (cpuTime, now, currentIo);
                 }
+                catch { }
             }
-            catch { }
 
             list.Add(new SystemServiceDetail
             {
@@ -106,15 +171,8 @@ public class WindowsSystemMonitor : ISystemService
 
     public Task<List<string>> GetAllSystemServicesAsync()
     {
-        try
-        {
-            var services = ServiceController.GetServices().Select(s => s.ServiceName).OrderBy(s => s).ToList();
-            return Task.FromResult(services);
-        }
-        catch
-        {
-            return Task.FromResult(new List<string>());
-        }
+        try { return Task.FromResult(ServiceController.GetServices().Select(s => s.ServiceName).OrderBy(s => s).ToList()); }
+        catch { return Task.FromResult(new List<string>()); }
     }
 
     public Task<ServiceState> GetServiceStateAsync(string serviceName)
@@ -132,10 +190,7 @@ public class WindowsSystemMonitor : ISystemService
             };
             return Task.FromResult(state);
         }
-        catch
-        {
-            return Task.FromResult(ServiceState.Failed);
-        }
+        catch { return Task.FromResult(ServiceState.Failed); }
     }
 
     public Task<(double Cpu, double Ram, double Disk)> GetHardwareMetricsAsync()
@@ -144,7 +199,6 @@ public class WindowsSystemMonitor : ISystemService
         double availableRamMb = _ramCounter.NextValue();
         double ramUsage = _totalRamMb > 0 ? Math.Round(100.0 * (1.0 - (availableRamMb / _totalRamMb)), 2) : 0;
         double diskUsage = Math.Min(100.0, Math.Round(_diskActivityCounter.NextValue(), 2));
-
         return Task.FromResult((cpuUsage, ramUsage, diskUsage));
     }
 }

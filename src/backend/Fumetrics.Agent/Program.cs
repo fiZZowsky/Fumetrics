@@ -26,4 +26,22 @@ app.MapGet("/api/agent/services", async (ISystemService systemMonitor) =>
     return Results.BadRequest("Nieobsługiwany system operacyjny.");
 });
 
+app.MapPost("/api/agent/services/{serviceName}/start", async (string serviceName, ISystemService systemMonitor) =>
+{
+    var success = await systemMonitor.StartServiceAsync(serviceName);
+    return success ? Results.Ok(new { success = true }) : Results.Problem("Nie udało się uruchomić usługi. Brak uprawnień lub usługa już działa.");
+});
+
+app.MapPost("/api/agent/services/{serviceName}/stop", async (string serviceName, ISystemService systemMonitor) =>
+{
+    var success = await systemMonitor.StopServiceAsync(serviceName);
+    return success ? Results.Ok(new { success = true }) : Results.Problem("Nie udało się zatrzymać usługi. Brak uprawnień lub usługa jest już zatrzymana.");
+});
+
+app.MapPost("/api/agent/services/{serviceName}/restart", async (string serviceName, ISystemService systemMonitor) =>
+{
+    var success = await systemMonitor.RestartServiceAsync(serviceName);
+    return success ? Results.Ok(new { success = true }) : Results.Problem("Nie udało się zrestartować usługi. Brak uprawnień.");
+});
+
 app.Run("http://0.0.0.0:5001");
