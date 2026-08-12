@@ -7,6 +7,7 @@ var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<ISystemService, WindowsSystemMonitor>();
 builder.Services.AddHostedService<AgentWorker>();
+builder.Services.AddHostedService<Fumetrics.Agent.Services.EventLogMonitor>();
 
 builder.Services.AddCors(options =>
     options.AddPolicy("AllowAll", p => p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader())
