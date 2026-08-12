@@ -2,6 +2,7 @@ using Fumetrics.Api.Hubs;
 using Fumetrics.Api.Repositories;
 using Fumetrics.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -130,6 +131,18 @@ app.MapPut("/api/metrics/alerts", async ([FromBody] Fumetrics.Api.Models.AlertRu
 app.MapDelete("/api/metrics/alerts/{id}", async (string id, ClickHouseRepository repo) =>
 {
     await repo.RemoveAlertRuleAsync(id);
+    return Results.Ok(new { success = true });
+});
+
+app.MapPost("/api/metrics/logs", async (
+    [FromBody] Fumetrics.Contracts.LogEntry log,
+    [FromServices] Fumetrics.Api.Repositories.ClickHouseRepository repo,
+    [FromServices] Microsoft.AspNetCore.SignalR.IHubContext<Fumetrics.Api.Hubs.TelemetryHub> hub) =>
+{
+    await repo.InsertLogsBulkAsync(new[] { log });
+
+    await hub.Clients.All.SendAsync("DataUpdated");
+
     return Results.Ok(new { success = true });
 });
 
