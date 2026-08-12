@@ -50,7 +50,19 @@ public class AgentWorker : BackgroundService
                     DiskUsagePercent = hwMetrics.Disk
                 };
 
-                foreach (var serviceName in serviceNames)
+                if (serviceNames.Contains("*"))
+                {
+                    request.Services.Add(new SystemServiceInfo
+                    {
+                        ServiceName = "*",
+                        State = ServiceState.Running,
+                        CpuUsage = 0,
+                        RamUsage = 0,
+                        DiskUsage = 0
+                    });
+                }
+
+                foreach (var serviceName in serviceNames.Where(s => s != "*"))
                 {
                     var srv = allServices.FirstOrDefault(s => s.ServiceName.Equals(serviceName, StringComparison.OrdinalIgnoreCase));
                     if (srv != null)
