@@ -9,6 +9,7 @@ builder.Services.AddGrpc();
 builder.Services.AddGrpcReflection();
 builder.Services.AddSingleton<ClickHouseRepository>();
 builder.Services.AddSignalR();
+builder.Services.AddHostedService<AlertWorker>();
 
 builder.Services.AddCors(options =>
 {
@@ -108,6 +109,23 @@ app.MapPost("/api/metrics/saved-servers/remove", async ([FromBody] SavedServerRe
     return Results.Ok(new { success = true });
 });
 
+app.MapGet("/api/metrics/alerts", async (ClickHouseRepository repo) =>
+{
+    var alerts = await repo.GetAlertRulesAsync();
+    return Results.Ok(alerts);
+});
+
+app.MapPost("/api/metrics/alerts", async ([FromBody] Fumetrics.Api.Models.AlertRuleDto rule, [FromServices] ClickHouseRepository repo) =>
+{
+    await repo.AddAlertRuleAsync(rule);
+    return Results.Ok(new { success = true });
+});
+
+app.MapDelete("/api/metrics/alerts/{id}", async (string id, ClickHouseRepository repo) =>
+{
+    await repo.RemoveAlertRuleAsync(id);
+    return Results.Ok(new { success = true });
+});
 
 app.MapGet("/", () => "Serwer gRPC działa.");
 
