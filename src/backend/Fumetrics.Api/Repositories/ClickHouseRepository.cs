@@ -455,7 +455,7 @@ public class ClickHouseRepository
         var rules = new List<AlertRuleDto>();
         using var connection = new ClickHouseConnection(_connectionString);
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, MachineName, ServiceName, Metric, Threshold, Email, CooldownMinutes FROM alert_rules";
+        command.CommandText = "SELECT Id, MachineName, ServiceName, Metric, Threshold, Email, CooldownMinutes FROM alert_rules FINAL";
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
@@ -478,6 +478,14 @@ public class ClickHouseRepository
         using var connection = new ClickHouseConnection(_connectionString);
         using var cmd = connection.CreateCommand();
         cmd.CommandText = $"INSERT INTO alert_rules (Id, MachineName, ServiceName, Metric, Threshold, Email, CooldownMinutes) VALUES ('{rule.Id}', '{rule.MachineName}', '{rule.ServiceName}', '{rule.Metric}', '{rule.Threshold}', '{rule.Email}', {rule.CooldownMinutes})";
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task UpdateAlertRuleAsync(AlertRuleDto rule)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"ALTER TABLE alert_rules UPDATE MachineName = '{rule.MachineName}', ServiceName = '{rule.ServiceName}', Metric = '{rule.Metric}', Threshold = '{rule.Threshold}', Email = '{rule.Email}', CooldownMinutes = {rule.CooldownMinutes} WHERE Id = '{rule.Id}'";
         await cmd.ExecuteNonQueryAsync();
     }
 

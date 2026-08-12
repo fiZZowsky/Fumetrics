@@ -121,6 +121,12 @@ app.MapPost("/api/metrics/alerts", async ([FromBody] Fumetrics.Api.Models.AlertR
     return Results.Ok(new { success = true });
 });
 
+app.MapPut("/api/metrics/alerts", async ([FromBody] Fumetrics.Api.Models.AlertRuleDto rule, [FromServices] ClickHouseRepository repo) =>
+{
+    await repo.UpdateAlertRuleAsync(rule);
+    return Results.Ok(new { success = true });
+});
+
 app.MapDelete("/api/metrics/alerts/{id}", async (string id, ClickHouseRepository repo) =>
 {
     await repo.RemoveAlertRuleAsync(id);

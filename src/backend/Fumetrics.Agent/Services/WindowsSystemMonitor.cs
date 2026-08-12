@@ -107,7 +107,7 @@ public class WindowsSystemMonitor : ISystemService
                 }
             }
         }
-        catch { }
+        catch (Exception ex) { }
 
         foreach (var sc in ServiceController.GetServices())
         {
@@ -151,7 +151,7 @@ public class WindowsSystemMonitor : ISystemService
                     }
                     _processTracking[pid] = (cpuTime, now, currentIo);
                 }
-                catch { }
+                catch(Exception ex) { }
             }
 
             list.Add(new SystemServiceDetail
