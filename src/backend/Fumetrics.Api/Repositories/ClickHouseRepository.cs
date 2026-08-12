@@ -91,6 +91,29 @@ public class ClickHouseRepository
             ORDER BY (MachineName, IpAddress, Port)";
         command.CommandText = createSavedServersTableSql;
         await command.ExecuteNonQueryAsync();
+
+        var createAlertRulesTableSql = @"
+            CREATE TABLE IF NOT EXISTS alert_rules (
+                Id String,
+                MachineName String,
+                ServiceName String,
+                Metric String,
+                Threshold String,
+                Email String,
+                CooldownMinutes Int32
+            ) ENGINE = ReplacingMergeTree()
+            ORDER BY Id";
+        command.CommandText = createAlertRulesTableSql;
+        await command.ExecuteNonQueryAsync();
+
+        var createAlertHistoryTableSql = @"
+            CREATE TABLE IF NOT EXISTS alert_history (
+                Timestamp DateTime64(3),
+                RuleId String
+            ) ENGINE = MergeTree()
+            ORDER BY (RuleId, Timestamp)";
+        command.CommandText = createAlertHistoryTableSql;
+        await command.ExecuteNonQueryAsync();
     }
 
     public async Task<IEnumerable<SavedServerDto>> GetSavedServersAsync()
@@ -425,5 +448,62 @@ public class ClickHouseRepository
         using var cmd = connection.CreateCommand();
         cmd.CommandText = deleteSql;
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<IEnumerable<AlertRuleDto>> GetAlertRulesAsync()
+    {
+        var rules = new List<AlertRuleDto>();
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, MachineName, ServiceName, Metric, Threshold, Email, CooldownMinutes FROM alert_rules";
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            rules.Add(new AlertRuleDto
+            {
+                Id = reader.GetString(0),
+                MachineName = reader.GetString(1),
+                ServiceName = reader.GetString(2),
+                Metric = reader.GetString(3),
+                Threshold = reader.GetString(4),
+                Email = reader.GetString(5),
+                CooldownMinutes = Convert.ToInt32(reader.GetValue(6))
+            });
+        }
+        return rules;
+    }
+
+    public async Task AddAlertRuleAsync(AlertRuleDto rule)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"INSERT INTO alert_rules (Id, MachineName, ServiceName, Metric, Threshold, Email, CooldownMinutes) VALUES ('{rule.Id}', '{rule.MachineName}', '{rule.ServiceName}', '{rule.Metric}', '{rule.Threshold}', '{rule.Email}', {rule.CooldownMinutes})";
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task RemoveAlertRuleAsync(string id)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"ALTER TABLE alert_rules DELETE WHERE Id = '{id}'";
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task LogAlertSentAsync(string ruleId)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"INSERT INTO alert_history (Timestamp, RuleId) VALUES (now(), '{ruleId}')";
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<DateTime?> GetLastAlertTimeAsync(string ruleId)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = $"SELECT max(Timestamp) FROM alert_history WHERE RuleId = '{ruleId}'";
+        var result = await cmd.ExecuteScalarAsync();
+        if (result != DBNull.Value && result != null) return Convert.ToDateTime(result);
+        return null;
     }
 }
