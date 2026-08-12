@@ -421,7 +421,7 @@ public class ClickHouseRepository
         {
             services.Add(reader.GetString(0));
         }
-        if (services.Count == 0) services.Add("Spooler");
+
         return services;
     }
 
