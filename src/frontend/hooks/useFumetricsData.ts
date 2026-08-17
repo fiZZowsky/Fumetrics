@@ -30,6 +30,21 @@ export function useFumetricsData() {
     }
   };
 
+  const [machineTags, setMachineTags] = useState<Record<string, string[]>>({});
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string | null>(null);
+
+  const fetchTags = async () => {
+    try {
+      const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/machines/tags`);
+      if (res.ok) {
+        const data = await res.json();
+        setMachineTags(data);
+      }
+    } catch (err) {
+      console.error("Błąd pobierania tagów", err);
+    }
+  };
+
   useEffect(() => {
     fetchData();
     const connection = new signalR.HubConnectionBuilder()

@@ -114,6 +114,15 @@ public class ClickHouseRepository
             ORDER BY (RuleId, Timestamp)";
         command.CommandText = createAlertHistoryTableSql;
         await command.ExecuteNonQueryAsync();
+
+        var createMachineTagsTableSql = @"
+            CREATE TABLE IF NOT EXISTS machine_tags (
+                MachineName String,
+                Tag String
+            ) ENGINE = ReplacingMergeTree()
+            ORDER BY (MachineName, Tag)";
+        command.CommandText = createMachineTagsTableSql;
+        await command.ExecuteNonQueryAsync();
     }
 
     public async Task<IEnumerable<SavedServerDto>> GetSavedServersAsync()
@@ -515,5 +524,42 @@ public class ClickHouseRepository
         var result = await cmd.ExecuteScalarAsync();
         if (result != DBNull.Value && result != null) return Convert.ToDateTime(result);
         return null;
+    }
+
+    public async Task<Dictionary<string, List<string>>> GetAllMachineTagsAsync()
+    {
+        var tagsMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        var sql = "SELECT MachineName, Tag FROM machine_tags FINAL";
+        using var connection = new ClickHouseConnection(_connectionString);
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var machine = reader.GetString(0);
+            var tag = reader.GetString(1);
+            if (!tagsMap.ContainsKey(machine))
+                tagsMap[machine] = new List<string>();
+            tagsMap[machine].Add(tag);
+        }
+        return tagsMap;
+    }
+
+    public async Task AddMachineTagAsync(string machineName, string tag)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        var insertSql = $"INSERT INTO machine_tags (MachineName, Tag) VALUES ('{machineName}', '{tag}')";
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = insertSql;
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task RemoveMachineTagAsync(string machineName, string tag)
+    {
+        using var connection = new ClickHouseConnection(_connectionString);
+        var deleteSql = $"ALTER TABLE machine_tags DELETE WHERE MachineName = '{machineName}' AND Tag = '{tag}'";
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = deleteSql;
+        await cmd.ExecuteNonQueryAsync();
     }
 }
