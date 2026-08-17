@@ -11,9 +11,25 @@ using System.ServiceProcess;
 public class WindowsSystemMonitor : ISystemService
 {
     private readonly PerformanceCounter _cpuCounter;
-    private readonly PerformanceCounter _ramCounter;
     private readonly PerformanceCounter _diskActivityCounter;
-    private readonly long _totalRamMb;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GlobalMemoryStatusEx(ref MEMORYSTATUSEX lpBuffer);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct MEMORYSTATUSEX
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
+    }
 
     [DllImport("kernel32.dll", SetLastError = true)]
     private static extern bool GetProcessIoCounters(IntPtr hProcess, out IO_COUNTERS lpIoCounters);
@@ -34,11 +50,9 @@ public class WindowsSystemMonitor : ISystemService
     public WindowsSystemMonitor()
     {
         _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total");
-        _ramCounter = new PerformanceCounter("Memory", "Available MBytes");
         _diskActivityCounter = new PerformanceCounter("PhysicalDisk", "% Disk Time", "_Total");
         _cpuCounter.NextValue();
         _diskActivityCounter.NextValue();
-        _totalRamMb = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024;
     }
 
     public async Task<bool> StartServiceAsync(string serviceName)
@@ -151,7 +165,7 @@ public class WindowsSystemMonitor : ISystemService
                     }
                     _processTracking[pid] = (cpuTime, now, currentIo);
                 }
-                catch(Exception ex) { }
+                catch (Exception ex) { }
             }
 
             list.Add(new SystemServiceDetail
@@ -196,9 +210,18 @@ public class WindowsSystemMonitor : ISystemService
     public Task<(double Cpu, double Ram, double Disk)> GetHardwareMetricsAsync()
     {
         double cpuUsage = Math.Round(_cpuCounter.NextValue(), 2);
-        double availableRamMb = _ramCounter.NextValue();
-        double ramUsage = _totalRamMb > 0 ? Math.Round(100.0 * (1.0 - (availableRamMb / _totalRamMb)), 2) : 0;
+
+        double ramUsage = 0;
+        MEMORYSTATUSEX memStatus = new MEMORYSTATUSEX();
+        memStatus.dwLength = (uint)Marshal.SizeOf(typeof(MEMORYSTATUSEX));
+
+        if (GlobalMemoryStatusEx(ref memStatus))
+        {
+            ramUsage = Math.Round(100.0 * (memStatus.ullTotalPhys - memStatus.ullAvailPhys) / memStatus.ullTotalPhys, 2);
+        }
+
         double diskUsage = Math.Min(100.0, Math.Round(_diskActivityCounter.NextValue(), 2));
+
         return Task.FromResult((cpuUsage, ramUsage, diskUsage));
     }
 }

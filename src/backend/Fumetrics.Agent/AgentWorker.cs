@@ -20,14 +20,17 @@ public class AgentWorker : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var backendUrl = _configuration["Fumetrics:BackendUrl"] ?? "https://localhost:7161";
+        var backendUrl = _configuration["Fumetrics:BackendUrl"] ?? "http://localhost:5170";
+        var grpcUrl = _configuration["Fumetrics:GrpcUrl"] ?? "http://localhost:50051";
+
         var machineName = Environment.MachineName;
         var osVersion = Environment.OSVersion.ToString();
 
-        _logger.LogInformation("Fumetrics Agent uruchomiony na {MachineName} ({OS}). Łączenie z: {Backend}", machineName, osVersion, backendUrl);
+        _logger.LogInformation("Fumetrics Agent uruchomiony na {MachineName} ({OS}). Zwykłe API: {Backend}, gRPC: {Grpc}", machineName, osVersion, backendUrl, grpcUrl);
 
-        using var channel = GrpcChannel.ForAddress(backendUrl);
+        using var channel = GrpcChannel.ForAddress(grpcUrl);
         var grpcClient = new TelemetryIngestion.TelemetryIngestionClient(channel);
+
         using var httpClient = new HttpClient();
 
         while (!stoppingToken.IsCancellationRequested)
