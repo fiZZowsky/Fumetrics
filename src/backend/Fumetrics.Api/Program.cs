@@ -3,8 +3,22 @@ using Fumetrics.Api.Repositories;
 using Fumetrics.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5170, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http1;
+    });
+
+    options.ListenAnyIP(50051, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http2;
+    });
+});
 
 builder.Services.AddGrpc();
 builder.Services.AddGrpcReflection();
@@ -14,12 +28,11 @@ builder.Services.AddHostedService<AlertWorker>();
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-            builder => builder
-                .SetIsOriginAllowed(origin => true)
-                .AllowAnyMethod()
-                .AllowAnyHeader()
-                .AllowCredentials());
+    options.AddPolicy("CorsPolicy", policy => policy
+        .SetIsOriginAllowed((host) => true)
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials());
 });
 
 var app = builder.Build();
@@ -27,7 +40,7 @@ var app = builder.Build();
 var repository = app.Services.GetRequiredService<ClickHouseRepository>();
 await repository.EnsureTableExistsAsync();
 
-app.UseCors("AllowAll");
+app.UseCors("CorsPolicy");
 
 app.MapGrpcService<TelemetryService>();
 app.MapHub<TelemetryHub>("/hubs/telemetry");
@@ -91,7 +104,6 @@ app.MapPost("/api/metrics/agents/config-services/remove", async ([FromBody] AddS
     return Results.Ok(new { success = true });
 });
 
-
 app.MapGet("/api/metrics/saved-servers", async (ClickHouseRepository repo) =>
 {
     var servers = await repo.GetSavedServersAsync();
@@ -140,13 +152,11 @@ app.MapPost("/api/metrics/logs", async (
     [FromServices] Microsoft.AspNetCore.SignalR.IHubContext<Fumetrics.Api.Hubs.TelemetryHub> hub) =>
 {
     await repo.InsertLogsBulkAsync(new[] { log });
-
     await hub.Clients.All.SendAsync("DataUpdated");
-
     return Results.Ok(new { success = true });
 });
 
-app.MapGet("/", () => "Serwer gRPC działa.");
+app.MapGet("/", () => "Serwer API działa (w tym gRPC pod portem 50051).");
 
 app.Run();
 

@@ -297,21 +297,23 @@ public class ClickHouseRepository
         var statuses = new List<AgentServiceStatusDto>();
         var sql = @"
         SELECT 
-            MachineName,
-            argMax(OsVersion, Timestamp) AS OsVersion,
-            ServiceName,
-            argMax(State, Timestamp) AS State,
-            max(Timestamp) AS LastUpdated,
-            argMax(MachineCpu, Timestamp) AS MachineCpu,
-            argMax(MachineRam, Timestamp) AS MachineRam,
-            argMax(MachineDisk, Timestamp) AS MachineDisk,
-            argMax(ServiceCpu, Timestamp) AS ServiceCpu,
-            argMax(ServiceRam, Timestamp) AS ServiceRam,
-            argMax(ServiceDisk, Timestamp) AS ServiceDisk
-        FROM agent_metrics
-        WHERE Timestamp >= now() - INTERVAL 10 MINUTE
-          AND (MachineName, ServiceName) IN (SELECT MachineName, ServiceName FROM monitored_services_config)
-        GROUP BY MachineName, ServiceName";
+            c.MachineName,
+            m.OsVersion,
+            c.ServiceName,
+            m.State,
+            toString(m.Timestamp) AS LastUpdated,
+            m.MachineCpu,
+            m.MachineRam,
+            m.MachineDisk,
+            m.ServiceCpu,
+            m.ServiceRam,
+            m.ServiceDisk
+        FROM (SELECT DISTINCT MachineName, ServiceName FROM monitored_services_config) c
+        LEFT JOIN (
+            SELECT * FROM agent_metrics 
+            ORDER BY Timestamp DESC 
+            LIMIT 1 BY MachineName, ServiceName
+        ) m ON c.MachineName = m.MachineName AND c.ServiceName = m.ServiceName";
 
         using var connection = new ClickHouseConnection(_connectionString);
         using var command = connection.CreateCommand();
@@ -322,16 +324,16 @@ public class ClickHouseRepository
             statuses.Add(new AgentServiceStatusDto
             {
                 MachineName = reader.GetString(0),
-                OsVersion = reader.GetString(1),
+                OsVersion = reader.IsDBNull(1) ? "Nieznany" : reader.GetString(1),
                 ServiceName = reader.GetString(2),
-                State = reader.GetString(3),
-                LastUpdated = reader.GetString(4),
-                MachineCpu = Convert.ToDouble(reader.GetValue(5)),
-                MachineRam = Convert.ToDouble(reader.GetValue(6)),
-                MachineDisk = Convert.ToDouble(reader.GetValue(7)),
-                ServiceCpu = Convert.ToDouble(reader.GetValue(8)),
-                ServiceRam = Convert.ToDouble(reader.GetValue(9)),
-                ServiceDisk = Convert.ToDouble(reader.GetValue(10))
+                State = reader.IsDBNull(3) ? "OCZEKIWANIE" : reader.GetString(3),
+                LastUpdated = reader.IsDBNull(4) ? "Brak danych" : reader.GetString(4),
+                MachineCpu = reader.IsDBNull(5) ? 0 : Convert.ToDouble(reader.GetValue(5)),
+                MachineRam = reader.IsDBNull(6) ? 0 : Convert.ToDouble(reader.GetValue(6)),
+                MachineDisk = reader.IsDBNull(7) ? 0 : Convert.ToDouble(reader.GetValue(7)),
+                ServiceCpu = reader.IsDBNull(8) ? 0 : Convert.ToDouble(reader.GetValue(8)),
+                ServiceRam = reader.IsDBNull(9) ? 0 : Convert.ToDouble(reader.GetValue(9)),
+                ServiceDisk = reader.IsDBNull(10) ? 0 : Convert.ToDouble(reader.GetValue(10))
             });
         }
         return statuses;

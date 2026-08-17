@@ -48,13 +48,26 @@ export default function Dashboard() {
     } catch { fetchData(); }
   };
 
-  const handleServiceAction = async (machineName: string, serviceName: string, action: 'start' | 'stop' | 'restart') => {
-    const ip = "localhost";
-    const port = "5001";
-    setAgentsData(prev => prev.map(s => (s.machineName === machineName && s.serviceName === serviceName) ? { ...s, state: 'OCZEKIWANIE' } : s));
+const handleServiceAction = async (machineName: string, serviceName: string, action: 'start' | 'stop' | 'restart') => {
+    setAgentsData(prev => prev.map(s => 
+      (s.machineName === machineName && s.serviceName === serviceName) 
+        ? { ...s, state: 'OCZEKIWANIE' } 
+        : s
+    ));
+
     try {
-      await fetch(`http://${ip}:${port}/api/agent/services/${serviceName}/${action}`, { method: 'POST' });
-    } catch { fetchData(); }
+      const response = await fetch(`http://${machineName}:5001/api/agent/services/${serviceName}/${action}`, { 
+        method: 'POST' 
+      });
+
+      if (!response.ok) {
+        throw new Error('Agent odrzucił żądanie');
+      }
+    } catch (error) { 
+      console.error(`Nie udało się wykonać akcji '${action}' na serwerze ${machineName}:`, error);
+      alert(`Nie udało się połączyć z agentem na maszynie ${machineName}. Upewnij się, że komputer jest włączony i Agent działa.`);
+      fetchData();
+    }
   };
 
   const uniqueMachines = Array.from(new Set(agentsData.map(a => a.machineName)));
