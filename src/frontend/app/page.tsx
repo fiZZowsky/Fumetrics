@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Activity, Bell, Search, AlertTriangle } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Activity, Bell, Search, AlertTriangle, Tag, CheckCircle2, XCircle } from 'lucide-react';
 import { useFumetricsData } from '@/hooks/useFumetricsData';
 import { AppsTab } from '@/components/dashboard/AppsTab';
 import { AgentCard } from '@/components/dashboard/AgentCard';
@@ -14,16 +14,69 @@ export default function Dashboard() {
   const { summaryData, timelineData, latestLogs, agentsData, setAgentsData, fetchData, error } = useFumetricsData();
   const [activeTab, setActiveTab] = useState<'apps' | 'infra'>('infra');
 
-  // Stany Modali
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<{ machine: string, service?: string | null } | null>(null);
+  
+  const [machineTags, setMachineTags] = useState<Record<string, string[]>>({});
+  const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+
+  const fetchTags = useCallback(async () => {
+    try {
+      const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/machines/tags`);
+      if (res.ok) {
+        const data = await res.json();
+        setMachineTags(data);
+      }
+    } catch (err) {
+      console.error("Błąd pobierania tagów", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTags();
+  }, [fetchTags]);
 
   const groupedAgents = agentsData.reduce((acc, curr) => {
     if (!acc[curr.machineName]) acc[curr.machineName] = [];
     acc[curr.machineName].push(curr);
     return acc;
   }, {} as Record<string, AgentStatusItem[]>);
+
+  const allUniqueTags = Array.from(new Set(Object.values(machineTags).flat()));
+
+  const isMachineOffline = (services: AgentStatusItem[]) => {
+    const machineMetrics = services[0];
+    if (!machineMetrics?.lastUpdated || machineMetrics.lastUpdated === 'Teraz' || machineMetrics.lastUpdated === 'Brak danych') return false;
+    try {
+      const dateStr = machineMetrics.lastUpdated.replace(' ', 'T');
+      const utcDateStr = dateStr.endsWith('Z') || dateStr.includes('+') || dateStr.includes('-', 10) ? dateStr : dateStr + 'Z';
+      const lastUpdateDate = new Date(utcDateStr);
+      if (isNaN(lastUpdateDate.getTime())) return false;
+      const now = new Date();
+      const diffInSeconds = Math.floor((now.getTime() - lastUpdateDate.getTime()) / 1000);
+      return diffInSeconds > 30;
+    } catch {
+      return false;
+    }
+  };
+
+  // Łączone filtrowanie po tagach i statusie aktywności
+  const filteredGroupedAgents = Object.entries(groupedAgents).filter(([machineName, services]) => {
+    // 1. Filtr tagów
+    if (selectedTagFilter !== 'all') {
+      const tagsForMachine = machineTags[machineName] || [];
+      if (!tagsForMachine.includes(selectedTagFilter)) return false;
+    }
+
+    // 2. Filtr statusu (Aktywne / Nieaktywne)
+    const offline = isMachineOffline(services);
+    if (selectedStatusFilter === 'active' && offline) return false;
+    if (selectedStatusFilter === 'inactive' && !offline) return false;
+
+    return true;
+  });
 
   const handleToggleService = async (machineName: string, serviceName: string, isCurrentlyMonitored: boolean) => {
     const endpointPath = isCurrentlyMonitored ? 'config-services/remove' : 'config-services';
@@ -48,25 +101,13 @@ export default function Dashboard() {
     } catch { fetchData(); }
   };
 
-const handleServiceAction = async (machineName: string, serviceName: string, action: 'start' | 'stop' | 'restart') => {
-    setAgentsData(prev => prev.map(s => 
-      (s.machineName === machineName && s.serviceName === serviceName) 
-        ? { ...s, state: 'OCZEKIWANIE' } 
-        : s
-    ));
-
+  const handleServiceAction = async (machineName: string, serviceName: string, action: 'start' | 'stop' | 'restart') => {
+    setAgentsData(prev => prev.map(s => (s.machineName === machineName && s.serviceName === serviceName) ? { ...s, state: 'OCZEKIWANIE' } : s));
     try {
-      const response = await fetch(`http://${machineName}:5001/api/agent/services/${serviceName}/${action}`, { 
-        method: 'POST' 
-      });
-
-      if (!response.ok) {
-        throw new Error('Agent odrzucił żądanie');
-      }
-    } catch (error) { 
-      console.error(`Nie udało się wykonać akcji '${action}' na serwerze ${machineName}:`, error);
-      alert(`Nie udało się połączyć z agentem na maszynie ${machineName}. Upewnij się, że komputer jest włączony i Agent działa.`);
-      fetchData();
+      const response = await fetch(`http://${machineName}:5001/api/agent/services/${serviceName}/${action}`, { method: 'POST' });
+      if (!response.ok) throw new Error('Agent odrzucił żądanie');
+    } catch { 
+      fetchData(); 
     }
   };
 
@@ -94,18 +135,68 @@ const handleServiceAction = async (machineName: string, serviceName: string, act
       {activeTab === 'apps' && <AppsTab summaryData={summaryData} timelineData={timelineData} latestLogs={latestLogs} />}
       
       {activeTab === 'infra' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {Object.entries(groupedAgents).length === 0 && <div className="col-span-full text-center text-slate-500 py-12">Brak agentów. Zeskanuj usługi!</div>}
-          {Object.entries(groupedAgents).map(([machineName, services]) => (
-            <AgentCard 
-              key={machineName} 
-              machineName={machineName} 
-              services={services} 
-              onOpenHistory={(m, s) => setHistoryTarget({ machine: m, service: s })}
-              onServiceAction={handleServiceAction}
-              onRemoveService={handleRemoveService}
-            />
-          ))}
+        <div className="space-y-6">
+          
+          <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/60 px-4 py-3 rounded-xl border border-slate-800">
+            
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-semibold text-slate-400 mr-2">Status:</span>
+              <button
+                onClick={() => setSelectedStatusFilter('all')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${selectedStatusFilter === 'all' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'}`}
+              >
+                Wszystkie
+              </button>
+              <button
+                onClick={() => setSelectedStatusFilter('active')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${selectedStatusFilter === 'active' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'}`}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Aktywne
+              </button>
+              <button
+                onClick={() => setSelectedStatusFilter('inactive')}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 ${selectedStatusFilter === 'inactive' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' : 'bg-slate-950 text-slate-400 hover:text-white border border-slate-800'}`}
+              >
+                <XCircle className="w-3.5 h-3.5 text-amber-500" /> Nieaktywne
+              </button>
+            </div>
+
+            {allUniqueTags.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Tag className="w-4 h-4 text-cyan-400" />
+                <span className="text-xs font-semibold text-slate-400">Tag:</span>
+                <select
+                  value={selectedTagFilter}
+                  onChange={(e) => setSelectedTagFilter(e.target.value)}
+                  className="bg-slate-950 text-xs text-slate-200 px-3 py-1.5 rounded-lg border border-slate-800 outline-none focus:border-cyan-500 transition-colors cursor-pointer"
+                >
+                  <option value="all">Wszystkie tagi</option>
+                  {allUniqueTags.map(tag => (
+                    <option key={tag} value={tag}>
+                      {tag}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          {/* SIATKA KART */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {filteredGroupedAgents.length === 0 && <div className="col-span-full text-center text-slate-500 py-12">Brak agentów spełniających kryteria wybranego filtra.</div>}
+            {filteredGroupedAgents.map(([machineName, services]) => (
+              <AgentCard 
+                key={machineName} 
+                machineName={machineName} 
+                services={services} 
+                tags={machineTags[machineName] || []}
+                onOpenHistory={(m, s) => setHistoryTarget({ machine: m, service: s })}
+                onServiceAction={handleServiceAction}
+                onRemoveService={handleRemoveService}
+                onRefreshData={() => { fetchData(); fetchTags(); }}
+              />
+            ))}
+          </div>
         </div>
       )}
 

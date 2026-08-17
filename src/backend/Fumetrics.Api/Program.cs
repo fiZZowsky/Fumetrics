@@ -156,9 +156,28 @@ app.MapPost("/api/metrics/logs", async (
     return Results.Ok(new { success = true });
 });
 
+app.MapGet("/api/metrics/machines/tags", async (ClickHouseRepository repo) =>
+{
+    var tags = await repo.GetAllMachineTagsAsync();
+    return Results.Ok(tags);
+});
+
+app.MapPost("/api/metrics/machines/tags", async ([FromBody] MachineTagRequest req, [FromServices] ClickHouseRepository repo) =>
+{
+    await repo.AddMachineTagAsync(req.MachineName, req.Tag.Trim());
+    return Results.Ok(new { success = true });
+});
+
+app.MapPost("/api/metrics/machines/tags/remove", async ([FromBody] MachineTagRequest req, [FromServices] ClickHouseRepository repo) =>
+{
+    await repo.RemoveMachineTagAsync(req.MachineName, req.Tag);
+    return Results.Ok(new { success = true });
+});
+
 app.MapGet("/", () => "Serwer API działa (w tym gRPC pod portem 50051).");
 
 app.Run();
 
 record AddServiceRequest(string MachineName, string ServiceName);
 record SavedServerRequest(string MachineName, string IpAddress, string Port);
+record MachineTagRequest(string MachineName, string Tag);
