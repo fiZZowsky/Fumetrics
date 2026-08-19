@@ -5,11 +5,11 @@ VisualStudioVersion = 17.14.36518.9
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.Api", "Fumetrics.Api.csproj", "{53580C92-294A-4E3C-A7CB-B1C256E9C15B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.Simulator", "..\Fumetrics.Simulator\Fumetrics.Simulator.csproj", "{3163E91A-F558-4986-8670-3E7E993D97DD}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.DevTools", "..\Fumetrics.Simulator\Fumetrics.DevTools.csproj", "{3163E91A-F558-4986-8670-3E7E993D97DD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.Agent", "..\Fumetrics.Agent\Fumetrics.Agent.csproj", "{FFC8737B-3901-413A-AFF9-D64BC0BA7D13}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.LoadSimulator", "..\Fumetrics.LoadSimulator\Fumetrics.LoadSimulator.csproj", "{61A6064F-D6B6-45D8-B1FB-5311BE0E3A4C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Fumetrics.StressService", "..\Fumetrics.LoadSimulator\Fumetrics.StressService.csproj", "{61A6064F-D6B6-45D8-B1FB-5311BE0E3A4C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
