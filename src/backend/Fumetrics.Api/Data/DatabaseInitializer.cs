@@ -36,7 +36,7 @@ public class DatabaseInitializer(ClickHouseConnectionFactory dbFactory, ILogger<
             ) ENGINE = ReplacingMergeTree() ORDER BY (MachineName, IpAddress, Port)",
 
             @"CREATE TABLE IF NOT EXISTS alert_rules (
-                Id String, MachineName String, ServiceName String, Metric String, Threshold String, Email String, DelayMinutes Int32, RepeatMinutes Int32
+                Id String, MachineName String, ServiceName String, Metric String, Threshold String, Email String, DelayMinutes Int32, RepeatMinutes Int32, HtmlTemplate String
             ) ENGINE = ReplacingMergeTree() ORDER BY Id",
 
             @"CREATE TABLE IF NOT EXISTS alert_history (

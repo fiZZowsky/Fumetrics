@@ -111,6 +111,30 @@ public class AlertEvaluatorService(AgentRepository agentRepo, AlertRepository al
     {
         string color = isAlarm ? "#ef4444" : "#10b981";
         string title = isAlarm ? (isReminder ? "🚨 ALARM TRWA NADAL" : "🚨 NOWY ALARM") : "✅ INCYDENT ROZWIĄZANY";
+        string targetName = isMachineLevel ? "CAŁY SERWER" : metric.ServiceName;
+
+        if (!string.IsNullOrWhiteSpace(rule.HtmlTemplate))
+        {
+            return rule.HtmlTemplate
+                .Replace("{{Title}}", title)
+                .Replace("{{Color}}", color)
+                .Replace("{{MachineName}}", rule.MachineName)
+                .Replace("{{Target}}", targetName)
+                .Replace("{{Reason}}", reason)
+                .Replace("{{CurrentValue}}", current)
+                .Replace("{{Threshold}}", threshold)
+                .Replace("{{OsVersion}}", metric.OsVersion)
+                .Replace("{{MachineCpu}}", metric.MachineCpu.ToString())
+                .Replace("{{MachineRam}}", metric.MachineRam.ToString())
+                .Replace("{{MachineDisk}}", metric.MachineDisk.ToString())
+                .Replace("{{LastUpdated}}", metric.LastUpdated);
+        }
+
+        return GetDefaultSystemTemplate(rule, metric, reason, current, threshold, isMachineLevel, isAlarm, isReminder, color, title, targetName);
+    }
+
+    private string GetDefaultSystemTemplate(AlertRuleDto rule, AgentServiceStatusDto metric, string reason, string current, string threshold, bool isMachineLevel, bool isAlarm, bool isReminder, string color, string title, string targetName)
+    {
         string subtitle = isAlarm ? "System monitorowania potwierdził trwającą anomalię." : "Parametry wróciły do normy. Status alarmu został zamknięty.";
 
         string serviceDetailsHtml = isMachineLevel ? "" : $@"
@@ -122,7 +146,7 @@ public class AlertEvaluatorService(AgentRepository agentRepo, AlertRepository al
             </div>";
 
         string targetLabel = isMachineLevel ? "Cel (Cała maszyna):" : "Usługa:";
-        string targetValue = isMachineLevel ? "Wszystkie usługi" : metric.ServiceName;
+        string targetValue = isMachineLevel ? "Wszystkie usługi" : targetName;
 
         return $@"
         <div style='font-family: ""Segoe UI"", Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #334155; border-radius: 8px; overflow: hidden; background-color: #0f172a; color: #f8fafc;'>

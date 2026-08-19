@@ -10,14 +10,15 @@ public class AlertRepository(ClickHouseConnectionFactory dbFactory)
         var rules = new List<AlertRuleDto>();
         using var connection = dbFactory.CreateConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT Id, MachineName, ServiceName, Metric, Threshold, Email, DelayMinutes, RepeatMinutes FROM alert_rules FINAL";
+        command.CommandText = "SELECT Id, MachineName, ServiceName, Metric, Threshold, Email, DelayMinutes, RepeatMinutes, HtmlTemplate FROM alert_rules FINAL";
 
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {
             rules.Add(new AlertRuleDto(
                 reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
-                reader.GetString(4), reader.GetString(5), Convert.ToInt32(reader.GetValue(6)), Convert.ToInt32(reader.GetValue(7))));
+                reader.GetString(4), reader.GetString(5), Convert.ToInt32(reader.GetValue(6)),
+                Convert.ToInt32(reader.GetValue(7)), reader.IsDBNull(8) ? "" : reader.GetString(8)));
         }
         return rules;
     }
