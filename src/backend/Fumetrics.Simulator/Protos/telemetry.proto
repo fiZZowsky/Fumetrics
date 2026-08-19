@@ -6,6 +6,7 @@ option csharp_namespace = "Fumetrics.Contracts";
 
 service TelemetryIngestion {
   rpc SendLogs (LogBatchRequest) returns (LogBatchResponse);
+  rpc SendAgentStatus (AgentStatusRequest) returns (AgentStatusResponse);
 }
 
 enum LogLevel {
@@ -13,6 +14,15 @@ enum LogLevel {
   WARNING = 1;
   ERROR = 2;
   CRITICAL = 3;
+}
+
+enum ServiceState {
+  UNKNOWN = 0;
+  RUNNING = 1;
+  STOPPED = 2;
+  STARTING = 3;
+  STOPPING = 4;
+  FAILED = 5;
 }
 
 message LogEntry {
@@ -30,4 +40,26 @@ message LogBatchRequest {
 message LogBatchResponse {
   bool success = 1;
   int32 processed_count = 2;
+}
+
+message SystemServiceInfo {
+  string service_name = 1;
+  ServiceState state = 2;
+  double cpu_usage = 3;
+  double ram_usage = 4;
+  double disk_usage = 5;
+}
+
+message AgentStatusRequest {
+  string machine_name = 1;
+  string os_version = 2;
+  repeated SystemServiceInfo services = 3;
+
+  double cpu_usage_percent = 4;
+  double ram_usage_percent = 5;
+  double disk_usage_percent = 6;
+}
+
+message AgentStatusResponse {
+  bool success = 1;
 }
