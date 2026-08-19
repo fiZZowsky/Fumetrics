@@ -26,11 +26,13 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
         var statuses = new List<AgentServiceStatusDto>();
         using var connection = dbFactory.CreateConnection();
         using var command = connection.CreateCommand();
+
         command.CommandText = @"
             SELECT c.MachineName, m.OsVersion, c.ServiceName, m.State, toString(m.Timestamp), m.MachineCpu, m.MachineRam, m.MachineDisk, m.ServiceCpu, m.ServiceRam, m.ServiceDisk
             FROM (SELECT DISTINCT MachineName, ServiceName FROM monitored_services_config) c
             LEFT JOIN (SELECT * FROM agent_metrics ORDER BY Timestamp DESC LIMIT 1 BY MachineName, ServiceName) m 
-            ON c.MachineName = m.MachineName AND c.ServiceName = m.ServiceName";
+            ON c.MachineName = m.MachineName AND c.ServiceName = m.ServiceName
+            ORDER BY c.MachineName ASC, c.ServiceName ASC";
 
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
