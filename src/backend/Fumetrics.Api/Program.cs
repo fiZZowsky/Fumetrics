@@ -50,6 +50,7 @@ app.MapAgentEndpoints();
 app.MapAlertEndpoints();
 app.MapLogEndpoints();
 app.MapAuditEndpoints();
+app.MapEmailTemplateEndpoints();
 
 app.MapGet("/", () => "Serwer API działa (w tym gRPC pod portem 50051).");
 
