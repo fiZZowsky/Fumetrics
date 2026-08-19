@@ -8,5 +8,6 @@ public record AlertRuleDto(
     string Threshold, 
     string Email, 
     int DelayMinutes, 
-    int RepeatMinutes
+    int RepeatMinutes,
+    string HtmlTemplate
     );
