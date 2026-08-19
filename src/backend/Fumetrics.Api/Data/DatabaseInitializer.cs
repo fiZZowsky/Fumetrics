@@ -45,7 +45,11 @@ public class DatabaseInitializer(ClickHouseConnectionFactory dbFactory, ILogger<
 
             @"CREATE TABLE IF NOT EXISTS machine_tags (
                 MachineName String, Tag String
-            ) ENGINE = ReplacingMergeTree() ORDER BY (MachineName, Tag)"
+            ) ENGINE = ReplacingMergeTree() ORDER BY (MachineName, Tag)",
+
+            @"CREATE TABLE IF NOT EXISTS audit_logs (
+                Timestamp DateTime64(3), Action String, TargetMachine String, TargetService String, UserIP String
+            ) ENGINE = MergeTree() ORDER BY Timestamp"
         };
 
         foreach (var script in scripts)
