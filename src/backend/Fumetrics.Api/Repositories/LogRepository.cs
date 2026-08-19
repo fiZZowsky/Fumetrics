@@ -25,7 +25,10 @@ public class LogRepository(ClickHouseConnectionFactory dbFactory)
         using var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT ServiceName, Level, toUInt64(countMerge(TotalCount)) AS TotalCount 
-            FROM logs_summary GROUP BY ServiceName, Level ORDER BY TotalCount DESC";
+            FROM logs_summary 
+            WHERE ServiceName IN (SELECT DISTINCT ServiceName FROM monitored_services_config)
+            GROUP BY ServiceName, Level 
+            ORDER BY TotalCount DESC";
 
         using var reader = await command.ExecuteReaderAsync();
         var result = new List<LogSummaryDto>();
@@ -41,7 +44,12 @@ public class LogRepository(ClickHouseConnectionFactory dbFactory)
         var logs = new List<LatestLogDto>();
         using var connection = dbFactory.CreateConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = $"SELECT toString(Timestamp), ServiceName, Level, Message FROM logs ORDER BY Timestamp DESC LIMIT {limit}";
+        command.CommandText = $@"
+            SELECT toString(Timestamp), ServiceName, Level, Message 
+            FROM logs 
+            WHERE ServiceName IN (SELECT DISTINCT ServiceName FROM monitored_services_config)
+            ORDER BY Timestamp DESC 
+            LIMIT {limit}";
 
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -57,7 +65,11 @@ public class LogRepository(ClickHouseConnectionFactory dbFactory)
         using var command = connection.CreateCommand();
         command.CommandText = @"
             SELECT formatDateTime(toStartOfInterval(Timestamp, INTERVAL 10 second), '%H:%M:%S') as TimeWindow, Level, CAST(count(*) AS Int32) as Count
-            FROM logs WHERE Timestamp >= now() - INTERVAL 5 MINUTE GROUP BY TimeWindow, Level ORDER BY TimeWindow ASC";
+            FROM logs 
+            WHERE Timestamp >= now() - INTERVAL 5 MINUTE 
+              AND ServiceName IN (SELECT DISTINCT ServiceName FROM monitored_services_config)
+            GROUP BY TimeWindow, Level 
+            ORDER BY TimeWindow ASC";
 
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
