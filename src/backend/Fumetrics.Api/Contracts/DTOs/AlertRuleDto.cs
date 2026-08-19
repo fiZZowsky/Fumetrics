@@ -7,5 +7,6 @@ public record AlertRuleDto(
     string Metric,
     string Threshold, 
     string Email, 
-    int CooldownMinutes
+    int DelayMinutes, 
+    int RepeatMinutes
     );

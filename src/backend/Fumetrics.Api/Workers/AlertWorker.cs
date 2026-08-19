@@ -2,11 +2,14 @@
 
 namespace Fumetrics.Api.Workers;
 
-public class AlertWorker(IServiceProvider serviceProvider, ILogger<AlertWorker> logger) : BackgroundService
+public class AlertWorker(IServiceProvider serviceProvider, IConfiguration configuration, ILogger<AlertWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("Fumetrics Alert Worker uruchomiony.");
+        int intervalSeconds = configuration.GetValue<int>("Alerting:CheckIntervalSeconds", 11);
+
+        logger.LogInformation("Fumetrics Alert Worker uruchomiony. Interwał sprawdzania: {Interval}s.", intervalSeconds);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             try
@@ -19,7 +22,8 @@ public class AlertWorker(IServiceProvider serviceProvider, ILogger<AlertWorker> 
             {
                 logger.LogError(ex, "Błąd w workerze alertów.");
             }
-            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+
+            await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), stoppingToken);
         }
     }
 }
