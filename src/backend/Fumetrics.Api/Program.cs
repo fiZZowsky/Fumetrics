@@ -49,6 +49,7 @@ if (app.Environment.IsDevelopment())
 app.MapAgentEndpoints();
 app.MapAlertEndpoints();
 app.MapLogEndpoints();
+app.MapAuditEndpoints();
 
 app.MapGet("/", () => "Serwer API działa (w tym gRPC pod portem 50051).");
 

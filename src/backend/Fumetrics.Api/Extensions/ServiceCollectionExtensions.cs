@@ -18,6 +18,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<LogRepository>();
         services.AddScoped<AgentRepository>();
         services.AddScoped<AlertRepository>();
+        services.AddScoped<AuditRepository>();
 
         services.AddScoped<EmailService>();
         services.AddScoped<AlertEvaluatorService>();

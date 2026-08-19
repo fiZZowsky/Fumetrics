@@ -9,10 +9,11 @@ import { HistoryModal } from '@/components/modals/HistoryModal';
 import { ScannerModal } from '@/components/modals/ScannerModal';
 import { AlertsModal } from '@/components/modals/AlertsModal';
 import { AgentStatusItem } from '@/types/fumetrics';
+import { AuditTab } from '@/components/dashboard/AuditTab';
 
 export default function Dashboard() {
   const { summaryData, timelineData, latestLogs, agentsData, setAgentsData, fetchData, error } = useFumetricsData();
-  const [activeTab, setActiveTab] = useState<'apps' | 'infra'>('infra');
+const [activeTab, setActiveTab] = useState<'apps' | 'infra' | 'audit'>('infra');
 
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -101,11 +102,18 @@ export default function Dashboard() {
     } catch { fetchData(); }
   };
 
-  const handleServiceAction = async (machineName: string, serviceName: string, action: 'start' | 'stop' | 'restart') => {
+const handleServiceAction = async (machineName: string, serviceName: string, action: 'start' | 'stop' | 'restart') => {
     setAgentsData(prev => prev.map(s => (s.machineName === machineName && s.serviceName === serviceName) ? { ...s, state: 'OCZEKIWANIE' } : s));
     try {
       const response = await fetch(`http://${machineName}:5001/api/agent/services/${serviceName}/${action}`, { method: 'POST' });
       if (!response.ok) throw new Error('Agent odrzucił żądanie');
+      
+      fetch(`http://${window.location.hostname}:5170/api/metrics/audit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action.toUpperCase(), targetMachine: machineName, targetService: serviceName })
+      }).catch(err => console.error("Nie udało się zapisać audytu", err));
+      
     } catch { 
       fetchData(); 
     }
@@ -123,8 +131,9 @@ export default function Dashboard() {
           <button onClick={() => setIsAlertModalOpen(true)} className="bg-amber-600/20 text-amber-500 border border-amber-600/30 hover:bg-amber-600/30 text-xs px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-1.5"><Bell className="w-3.5 h-3.5" /> Alerty E-mail</button>
           {activeTab === 'infra' && <button onClick={() => setIsScanModalOpen(true)} className="bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-1.5 shadow-lg shadow-cyan-900/20"><Search className="w-3.5 h-3.5" /> Skanuj / Dodaj Usługi</button>}
           <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-800">
-            <button onClick={() => setActiveTab('apps')} className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'apps' ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}>Aplikacje (Logi)</button>
-            <button onClick={() => setActiveTab('infra')} className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'infra' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-200'}`}>Infrastruktura</button>
+            <button onClick={() => setActiveTab('apps')} className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'apps' ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-400 hover:text-slate-200'}`}>Zdarzenia</button>
+            <button onClick={() => setActiveTab('infra')} className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'infra' ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-slate-200'}`}>Monitorowanie</button>
+            <button onClick={() => setActiveTab('audit')} className={`px-6 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'audit' ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-slate-200'}`}>Historia operacji</button>
           </div>
         </div>
       </div>
@@ -133,6 +142,7 @@ export default function Dashboard() {
 
       {/* ZAKŁADKI */}
       {activeTab === 'apps' && <AppsTab summaryData={summaryData} timelineData={timelineData} latestLogs={latestLogs} />}
+      {activeTab === 'audit' && <AuditTab />}
       
       {activeTab === 'infra' && (
         <div className="space-y-6">
