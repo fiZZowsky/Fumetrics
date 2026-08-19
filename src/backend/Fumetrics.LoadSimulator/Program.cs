@@ -1,13 +1,13 @@
-using Fumetrics.LoadSimulator;
+using Fumetrics.StressService;
 
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddWindowsService(options =>
 {
-    options.ServiceName = "FumetricsLoadSimulator";
+    options.ServiceName = "Fumetrics System Stressor";
 });
 
-builder.Services.AddHostedService<LoadWorker>();
+builder.Services.AddHostedService<StressWorker>();
 
 var host = builder.Build();
 host.Run();
