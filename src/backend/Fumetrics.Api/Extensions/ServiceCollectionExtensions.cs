@@ -21,6 +21,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AuditRepository>();
 
         services.AddScoped<EmailService>();
+        services.AddSingleton<AlertStateManager>();
         services.AddScoped<AlertEvaluatorService>();
 
         services.AddHostedService<AlertWorker>();
