@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Bell, X, Trash2, Edit2, Code, Eye, RefreshCw } from 'lucide-react';
-import { AlertRule, AgentStatusItem } from '@/types/fumetrics';
+import { Bell, X, Trash2, Edit2, Code, Eye, RefreshCw, Save, FolderOpen } from 'lucide-react';
+import { AlertRule, AgentStatusItem, EmailTemplate } from '@/types/fumetrics';
 
 interface AlertsModalProps {
   uniqueMachines: string[];
@@ -87,12 +87,30 @@ export function AlertsModal({ uniqueMachines, groupedAgents, onClose }: AlertsMo
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [previewMode, setPreviewMode] = useState<'alarm' | 'resolved'>('alarm');
 
+  const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
+  const [templateName, setTemplateName] = useState('');
+
   const fetchRules = async () => {
     try { const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts`); if (res.ok) setRules(await res.json()); } catch {}
   };
 
+const fetchTemplates = async () => {
+    try { 
+      const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/email-templates`); 
+      if (res.ok) {
+        const data = await res.json();
+        setSavedTemplates(data);
+      } else {
+        console.error("Nie udało się pobrać szablonów, status:", res.status);
+      }
+    } catch (err) {
+      console.error("Błąd sieci przy pobieraniu szablonów:", err);
+    }
+  };
+
   useEffect(() => { 
     fetchRules(); 
+    fetchTemplates();
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === 'codeChange') {
         setNewRule(prev => ({ ...prev, htmlTemplate: event.data.code }));
@@ -111,6 +129,45 @@ export function AlertsModal({ uniqueMachines, groupedAgents, onClose }: AlertsMo
       method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRule) 
     });
     cancelEdit(); fetchRules();
+  };
+
+const saveTemplateToDb = async () => {
+    if (!templateName.trim()) { alert("Podaj nazwę dla szablonu!"); return; }
+    try {
+      const response = await fetch(`http://${window.location.hostname}:5170/api/metrics/email-templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: templateName, htmlContent: newRule.htmlTemplate })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Serwer zwrócił błąd: ${response.status}`);
+      }
+
+      alert("Szablon został pomyślnie zapisany!");
+      setTemplateName('');
+      fetchTemplates();
+    } catch (ex: any) { 
+      alert("Błąd podczas zapisu szablonu: " + ex.message); 
+    }
+  };
+
+const loadTemplate = (tmpl: EmailTemplate) => {
+    setNewRule(prev => ({ ...prev, htmlTemplate: tmpl.htmlContent }));
+    setTemplateName(tmpl.name);
+    
+    const iframeEl = document.getElementById('monaco-iframe') as HTMLIFrameElement;
+    if (iframeEl && iframeEl.contentWindow) {
+      iframeEl.contentWindow.postMessage({ type: 'setTemplate', code: tmpl.htmlContent }, '*');
+    }
+  };
+
+  const deleteTemplate = async (id?: string) => {
+    if (!id || !confirm("Usunąć ten szablon z bazy?")) return;
+    try {
+      await fetch(`http://${window.location.hostname}:5170/api/metrics/email-templates/${id}`, { method: 'DELETE' });
+      fetchTemplates();
+    } catch {}
   };
 
   const removeRule = async (id: string) => {
@@ -220,54 +277,99 @@ export function AlertsModal({ uniqueMachines, groupedAgents, onClose }: AlertsMo
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
-            <div className="flex justify-between items-center mb-4 bg-slate-100 dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tryb Podglądu Symulacji:</span>
-                <button onClick={() => setPreviewMode('alarm')} className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${previewMode === 'alarm' ? 'bg-red-500 text-white shadow-md' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>🚨 Alarm</button>
-                <button onClick={() => setPreviewMode('resolved')} className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${previewMode === 'resolved' ? 'bg-emerald-500 text-white shadow-md' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'}`}>✅ Rozwiązano</button>
+            <div className="flex flex-wrap justify-between items-center mb-4 bg-slate-100 dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Szablony:</span>
+                <select data-template-select onChange={e => { const found = savedTemplates.find(t => t.id === e.target.value); if (found) { loadTemplate(found); } else { setTemplateName(''); }}} className="bg-white dark:bg-slate-800 text-xs text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 outline-none">
+                  <option value="">-- Załaduj zapisany szablon --</option>
+                  {savedTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                <input type="text" value={templateName} onChange={e => setTemplateName(e.target.value)} placeholder="Nazwa szablonu..." className="bg-white dark:bg-slate-800 text-xs px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 outline-none w-36" />
+                <button onClick={saveTemplateToDb} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded-lg font-bold flex items-center gap-1 shadow-sm"><Save className="w-3.5 h-3.5" /> Zapisz</button>
               </div>
-              <button onClick={() => setShowTemplateEditor(false)} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2 rounded-xl font-bold transition-all">Gotowe (Wróć)</button>
+
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1 bg-slate-200 dark:bg-slate-800 p-1 rounded-lg">
+                  <button onClick={() => setPreviewMode('alarm')} className={`text-xs px-2.5 py-1 rounded-md font-bold transition-all ${previewMode === 'alarm' ? 'bg-red-500 text-white' : 'text-slate-600 dark:text-slate-400'}`}>🚨 Alarm</button>
+                  <button onClick={() => setPreviewMode('resolved')} className={`text-xs px-2.5 py-1 rounded-md font-bold transition-all ${previewMode === 'resolved' ? 'bg-emerald-500 text-white' : 'text-slate-600 dark:text-slate-400'}`}>✅ OK</button>
+                </div>
+                <button onClick={() => setShowTemplateEditor(false)} className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs px-4 py-2 rounded-xl font-bold transition-all">Gotowe (Wróć)</button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
-               <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-[#1e1e1e]">
-                 <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 text-xs font-bold text-slate-400 flex items-center justify-between">
-                   <span>Edytor kodu HTML</span>
-                   <button onClick={() => setNewRule({...newRule, htmlTemplate: DEFAULT_TEMPLATE})} className="text-cyan-400 hover:underline flex items-center gap-1"><RefreshCw className="w-3 h-3" /> Przywróć domyślny</button>
-                 </div>
-                 <iframe 
-                   title="MonacoEditor"
-                   className="w-full h-full border-0"
-                   srcDoc={`
-                     <!DOCTYPE html>
-                     <html>
-                       <head>
-                         <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs/loader.min.js"></script>
-                       </head>
-                       <body style="margin:0; padding:0; height:100vh;">
-                         <div id="container" style="width:100%; height:100%;"></div>
-                         <script>
-                           require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs' }});
-                           require(['vs/editor/editor.main'], function() {
-                             const editor = monaco.editor.create(document.getElementById('container'), {
-                               value: \`${newRule.htmlTemplate?.replace(/\\/g, '\\\\').replace(/`/g, '\\`')}\`,
-                               language: 'html',
-                               theme: 'vs-dark',
-                               automaticLayout: true,
-                               fontSize: 13,
-                               minimap: { enabled: false }
-                             });
-                             editor.onDidChangeModelContent(() => {
-                               window.parent.postMessage({ type: 'codeChange', code: editor.getValue() }, '*');
-                             });
-                           });
-                         </script>
-                       </body>
-                     </html>
-                   `}
-                 />
-               </div>
+               <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-[#1e1e1e] h-full">
+  <div className="bg-slate-900 px-4 py-2 border-b border-slate-800 text-xs font-bold text-slate-400 flex items-center justify-between">
+    <span>Edytor kodu HTML (Visual Studio Code Engine)</span>
+    <button onClick={() => {
+      const defaultCode = DEFAULT_TEMPLATE;
+      setNewRule(prev => ({...prev, htmlTemplate: defaultCode}));
+      setTemplateName('');
+      const iframeEl = document.getElementById('monaco-iframe') as HTMLIFrameElement;
+      if (iframeEl && iframeEl.contentWindow) {
+        iframeEl.contentWindow.postMessage({ type: 'setTemplate', code: defaultCode }, '*');
+      }
+    }} className="text-cyan-400 hover:underline flex items-center gap-1">
+      <RefreshCw className="w-3 h-3" /> Przywróć domyślny
+    </button>
+  </div>
+  <iframe 
+    id="monaco-iframe"
+    title="MonacoEditor"
+    className="w-full flex-1 border-0"
+    srcDoc={`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs/loader.min.js"></script>
+        </head>
+        <body style="margin:0; padding:0; height:100vh; overflow:hidden;">
+          <div id="container" style="width:100%; height:100%;"></div>
+          <script>
+            let editorInstance;
+            require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.46.0/min/vs' }});
+            require(['vs/editor/editor.main'], function() {
+              editorInstance = monaco.editor.create(document.getElementById('container'), {
+                value: '',
+                language: 'html',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 13,
+                minimap: { enabled: false }
+              });
 
+              // Informuj rodzica o zmianach bez przeładowywania
+              editorInstance.onDidChangeModelContent(() => {
+                window.parent.postMessage({ type: 'codeChange', code: editorInstance.getValue() }, '*');
+              });
+
+              // Daj znać rodzicowi, że edytor jest gotowy na przyjęcie kodu
+              window.parent.postMessage({ type: 'editorReady' }, '*');
+            });
+
+            // Nasłuch wiadomości od rodzica (inicjalizacja lub wczytanie szablonu)
+            window.addEventListener('message', (event) => {
+              if (event.data && (event.data.type === 'setTemplate' || event.data.type === 'init')) {
+                if (editorInstance && editorInstance.getValue() !== event.data.code) {
+                  editorInstance.setValue(event.data.code);
+                }
+              }
+            });
+          </script>
+        </body>
+      </html>
+    `}
+    onLoad={() => {
+      // Gdy iframe się załaduje, wyślij aktualny stan szablonu do środka
+      setTimeout(() => {
+        const iframeEl = document.getElementById('monaco-iframe') as HTMLIFrameElement;
+        if (iframeEl && iframeEl.contentWindow) {
+          iframeEl.contentWindow.postMessage({ type: 'init', code: newRule.htmlTemplate || DEFAULT_TEMPLATE }, '*');
+        }
+      }, 300);
+    }}
+  />
+</div>
                <div className="flex flex-col border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden bg-white dark:bg-slate-900">
                  <div className="bg-slate-100 dark:bg-slate-800 px-4 py-2 border-b border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
                    <Eye className="w-4 h-4 text-cyan-500" /> Żywy Podgląd Wiadomości E-mail
