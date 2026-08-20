@@ -1,5 +1,6 @@
 ﻿using Fumetrics.Api.Contracts;
 using Fumetrics.Api.Repositories;
+using Fumetrics.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Fumetrics.Api.Endpoints;
@@ -11,6 +12,30 @@ public static class AlertEndpoints
         var group = app.MapGroup("/api/metrics/alerts").RequireCors("CorsPolicy");
 
         group.MapGet("/", async ([FromServices] AlertRepository repo) => Results.Ok(await repo.GetAllAsync()));
+
+        group.MapGet("/active", ([FromServices] AlertStateManager stateManager) =>
+        {
+            var activeAlerts = stateManager.ActiveStates.Select(kvp =>
+            {
+                var parts = kvp.Key.Split('_', 3);
+
+                return new
+                {
+                    RuleId = parts.Length > 0 ? parts[0] : "N/A",
+                    MachineName = parts.Length > 1 ? parts[1] : "N/A",
+                    ServiceName = parts.Length > 2 ? parts[2] : "N/A",
+                    FirstSeen = kvp.Value.FirstSeen,
+                    LastSent = kvp.Value.LastSent,
+                    IsFiring = kvp.Value.IsFiring,
+                    DurationMinutes = Math.Round((DateTime.UtcNow - kvp.Value.FirstSeen).TotalMinutes, 1)
+                };
+            })
+            .OrderByDescending(a => a.IsFiring)
+            .ThenByDescending(a => a.DurationMinutes)
+            .ToList();
+
+            return Results.Ok(activeAlerts);
+        });
 
         group.MapPost("/", async ([FromBody] AlertRuleDto rule, [FromServices] AlertRepository repo) =>
         {
