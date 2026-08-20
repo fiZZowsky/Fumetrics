@@ -11,6 +11,7 @@ import { ScannerModal } from '@/components/modals/ScannerModal';
 import { AlertsModal } from '@/components/modals/AlertsModal';
 import { AgentStatusItem } from '@/types/fumetrics';
 import { ThemeProvider, useTheme } from '@/hooks/useTheme';
+import { LiveAlertsWidget } from '@/components/dashboard/LiveAlertsWidget';
 
 function DashboardContent() {
   const { summaryData, timelineData, latestLogs, agentsData, setAgentsData, fetchData, error } = useFumetricsData();
@@ -129,6 +130,12 @@ function DashboardContent() {
       
       {activeTab === 'infra' && (
         <div className="space-y-6">
+          
+          {/* NOWY WIDŻET LIVE ALERTS */}
+          <div className="w-full">
+            <LiveAlertsWidget />
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white/60 dark:bg-[#121A2F]/60 backdrop-blur-md px-5 py-4 rounded-2xl border border-slate-200 dark:border-slate-800/60 shadow-sm">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400 mr-2 uppercase tracking-wider">Status:</span>
