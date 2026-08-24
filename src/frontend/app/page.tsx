@@ -13,6 +13,7 @@ import { AgentStatusItem } from '@/types/fumetrics';
 import { ThemeProvider, useTheme } from '@/hooks/useTheme';
 import { LiveAlertsWidget } from '@/components/dashboard/LiveAlertsWidget';
 import { AlertHistoryModal } from '@/components/modals/AlertHistoryModal';
+import { MetricsHistoryModal } from '@/components/modals/MetricsHistoryModal';
 
 function DashboardContent() {
   const { summaryData, timelineData, latestLogs, agentsData, setAgentsData, fetchData, error } = useFumetricsData();
@@ -23,7 +24,8 @@ function DashboardContent() {
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<{ machine: string, service?: string | null } | null>(null);
   const [isAlertHistoryModalOpen, setIsAlertHistoryModalOpen] = useState(false);
-  
+  const [metricsTargetMachine, setMetricsTargetMachine] = useState<string | null>(null);
+
   const [machineTags, setMachineTags] = useState<Record<string, string[]>>({});
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -92,7 +94,6 @@ function DashboardContent() {
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0B101E] dark:text-slate-100 p-8 transition-colors duration-300 font-sans">
       
-      {/* NAGŁÓWEK */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 pb-4 gap-4">
         <div className="flex items-center gap-3">
           <div className="bg-linear-to-br from-cyan-500 to-indigo-600 p-2 rounded-xl shadow-lg shadow-cyan-500/30">
@@ -130,14 +131,12 @@ function DashboardContent() {
 
       {error && <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 p-4 rounded-2xl mb-6 flex items-center gap-3 shadow-sm"><AlertTriangle className="w-5 h-5 shrink-0" /><span>Błąd: {error}</span></div>}
 
-      {/* ZAKŁADKI */}
       {activeTab === 'apps' && <AppsTab summaryData={summaryData} timelineData={timelineData} latestLogs={latestLogs} />}
       {activeTab === 'audit' && <AuditTab />}
       
       {activeTab === 'infra' && (
         <div className="space-y-6">
           
-          {/* NOWY WIDŻET LIVE ALERTS */}
           <div className="w-full">
             <LiveAlertsWidget />
           </div>
@@ -164,7 +163,17 @@ function DashboardContent() {
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {filteredGroupedAgents.length === 0 && <div className="col-span-full text-center text-slate-500 py-12">Brak agentów. Użyj skanera!</div>}
             {filteredGroupedAgents.map(([machineName, services]) => (
-              <AgentCard key={machineName} machineName={machineName} services={services} tags={machineTags[machineName] || []} onOpenHistory={(m, s) => setHistoryTarget({ machine: m, service: s })} onServiceAction={handleServiceAction} onRemoveService={handleRemoveService} onRefreshData={() => { fetchData(); fetchTags(); }} />
+              <AgentCard 
+                key={machineName} 
+                machineName={machineName} 
+                services={services} 
+                tags={machineTags[machineName] || []} 
+                onOpenHistory={(m, s) => setHistoryTarget({ machine: m, service: s })} 
+                onServiceAction={handleServiceAction} 
+                onRemoveService={handleRemoveService} 
+                onRefreshData={() => { fetchData(); fetchTags(); }} 
+                onOpenMetrics={() => setMetricsTargetMachine(machineName)}
+              />
             ))}
           </div>
         </div>
@@ -174,6 +183,12 @@ function DashboardContent() {
       {isScanModalOpen && <ScannerModal groupedAgents={groupedAgents} onClose={() => setIsScanModalOpen(false)} onToggleService={handleToggleService} />}
       {isAlertModalOpen && <AlertsModal uniqueMachines={uniqueMachines} groupedAgents={groupedAgents} onClose={() => setIsAlertModalOpen(false)} />}
       {isAlertHistoryModalOpen && <AlertHistoryModal onClose={() => setIsAlertHistoryModalOpen(false)} />}
+      {metricsTargetMachine && (
+        <MetricsHistoryModal 
+          machineName={metricsTargetMachine} 
+          onClose={() => setMetricsTargetMachine(null)} 
+        />
+      )}
     </main>
   );
 }

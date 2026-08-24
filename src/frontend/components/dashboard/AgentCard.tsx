@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react';
-import { Cpu, HardDrive, MemoryStick, Play, RefreshCw, ShieldAlert, Square, Trash2, Activity, AlertTriangle, Plus, X } from 'lucide-react';
+import { Cpu, HardDrive, MemoryStick, Play, RefreshCw, ShieldAlert, Square, Trash2, Activity, AlertTriangle, Plus, X, LineChart } from 'lucide-react';
 import { MetricBar } from '../ui/MetricBar';
 import { AgentStatusItem } from '@/types/fumetrics';
 
 interface AgentCardProps {
-  machineName: string; services: AgentStatusItem[]; tags: string[];
+  machineName: string; 
+  services: AgentStatusItem[]; 
+  tags: string[];
   onOpenHistory: (machineName: string, serviceName?: string) => void;
   onServiceAction: (machineName: string, serviceName: string, action: 'start' | 'stop' | 'restart') => void;
-  onRemoveService: (machineName: string, serviceName: string) => void; onRefreshData: () => void;
+  onRemoveService: (machineName: string, serviceName: string) => void; 
+  onRefreshData: () => void;
+  onOpenMetrics?: () => void;
 }
 
-export function AgentCard({ machineName, services, tags = [], onOpenHistory, onServiceAction, onRemoveService, onRefreshData }: AgentCardProps) {
+export function AgentCard({ machineName, services, tags = [], onOpenHistory, onServiceAction, onRemoveService, onRefreshData, onOpenMetrics }: AgentCardProps) {
   const machineMetrics = services[0];
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -86,10 +90,19 @@ export function AgentCard({ machineName, services, tags = [], onOpenHistory, onS
         </div>
       </div>
 
-      <div className={`p-6 bg-white dark:bg-[#0A0F1C]/30 border-b border-slate-100 dark:border-slate-800/60 grid grid-cols-3 gap-6 ${offline ? 'opacity-40 grayscale' : ''} transition-all`}>
-        <MetricBar label="CPU" value={machineMetrics?.machineCpu || 0} icon={Cpu} />
-        <MetricBar label="RAM" value={machineMetrics?.machineRam || 0} icon={Activity} />
-        <MetricBar label="Dysk" value={machineMetrics?.machineDisk || 0} icon={HardDrive} />
+      <div className={`p-6 bg-white dark:bg-[#0A0F1C]/30 border-b border-slate-100 dark:border-slate-800/60 ${offline ? 'opacity-40 grayscale' : ''} transition-all`}>
+        <div className="grid grid-cols-3 gap-6">
+          <MetricBar label="CPU" value={machineMetrics?.machineCpu || 0} icon={Cpu} />
+          <MetricBar label="RAM" value={machineMetrics?.machineRam || 0} icon={Activity} />
+          <MetricBar label="Dysk" value={machineMetrics?.machineDisk || 0} icon={HardDrive} />
+        </div>
+        
+        <button 
+          onClick={onOpenMetrics}
+          className="w-full mt-5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-500/10 dark:hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-500/30 text-xs font-bold py-2 rounded-xl flex items-center justify-center gap-2 transition-colors"
+        >
+          <LineChart className="w-4 h-4" /> Historia Wydajności
+        </button>
       </div>
 
       <div className={`p-6 flex-1 space-y-4 ${offline ? 'opacity-60' : ''} transition-opacity`}>

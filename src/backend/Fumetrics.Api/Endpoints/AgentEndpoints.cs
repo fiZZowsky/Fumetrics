@@ -13,8 +13,11 @@ public static class AgentEndpoints
         group.MapGet("/agents", async ([FromServices] AgentRepository repo) =>
             Results.Ok(await repo.GetLatestStatusAsync()));
 
-        group.MapGet("/agents/{machineName}/history", async (string machineName, string? range, [FromServices] AgentRepository repo) =>
-            Results.Ok(await repo.GetAgentHardwareHistoryAsync(machineName, range ?? "1h")));
+        group.MapGet("/agents/{machineName}/history", async (string machineName, [FromQuery] int hours, [FromServices] AgentRepository repo) =>
+        {
+            int h = hours > 0 ? hours : 12;
+            return Results.Ok(await repo.GetMachineMetricsHistoryAsync(machineName, h));
+        });
 
         group.MapGet("/agents/{machineName}/services/{serviceName}/history", async (string machineName, string serviceName, string? range, [FromServices] AgentRepository repo) =>
             Results.Ok(await repo.GetServiceHardwareHistoryAsync(machineName, serviceName, range ?? "1h")));

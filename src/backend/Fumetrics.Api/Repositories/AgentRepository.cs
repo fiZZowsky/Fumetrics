@@ -152,4 +152,35 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
         }
         return tagsMap;
     }
+
+    public async Task<IEnumerable<AgentHardwareHistoryDto>> GetMachineMetricsHistoryAsync(string machineName, int hoursBack = 24)
+    {
+        var history = new List<AgentHardwareHistoryDto>();
+        using var connection = dbFactory.CreateConnection();
+        using var command = connection.CreateCommand();
+
+        command.CommandText = $@"
+        SELECT 
+            toStartOfFiveMinute(Timestamp) as TimeBin,
+            avg(MachineCpu) as AvgCpu,
+            avg(MachineRam) as AvgRam,
+            avg(MachineDisk) as AvgDisk
+        FROM agent_metrics 
+        WHERE MachineName = '{machineName}' 
+          AND Timestamp >= now() - INTERVAL {hoursBack} HOUR
+        GROUP BY TimeBin
+        ORDER BY TimeBin ASC";
+
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            history.Add(new AgentHardwareHistoryDto(
+                reader.GetDateTime(0).ToString("yyyy-MM-ddTHH:mm:ss"),
+                Math.Round(reader.GetDouble(1), 2),
+                Math.Round(reader.GetDouble(2), 2),
+                Math.Round(reader.GetDouble(3), 2)
+            ));
+        }
+        return history;
+    }
 }
