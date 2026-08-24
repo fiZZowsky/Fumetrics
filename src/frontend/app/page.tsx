@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, Bell, Search, AlertTriangle, Tag, CheckCircle2, XCircle, Sun, Moon, Clock } from 'lucide-react';
+import { Activity, Bell, Search, AlertTriangle, Tag, CheckCircle2, XCircle, Sun, Moon, Clock, LogOut } from 'lucide-react';
 import { useFumetricsData } from '@/hooks/useFumetricsData';
 import { AppsTab } from '@/components/dashboard/AppsTab';
 import { AgentCard } from '@/components/dashboard/AgentCard';
@@ -14,8 +14,9 @@ import { ThemeProvider, useTheme } from '@/hooks/useTheme';
 import { LiveAlertsWidget } from '@/components/dashboard/LiveAlertsWidget';
 import { AlertHistoryModal } from '@/components/modals/AlertHistoryModal';
 import { MetricsHistoryModal } from '@/components/modals/MetricsHistoryModal';
+import { LoginScreen } from '@/components/auth/LoginScreen';
 
-function DashboardContent() {
+function DashboardContent({ onLogout }: { onLogout: () => void }) {
   const { summaryData, timelineData, latestLogs, agentsData, setAgentsData, fetchData, error } = useFumetricsData();
   const [activeTab, setActiveTab] = useState<'apps' | 'infra' | 'audit'>('infra');
   const { theme, toggleTheme } = useTheme();
@@ -30,11 +31,17 @@ function DashboardContent() {
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
-  const fetchTags = useCallback(async () => {
+const fetchTags = useCallback(async () => {
     try {
-      const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/machines/tags`);
+      const token = localStorage.getItem('fumetrics_jwt');
+      const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/machines/tags`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json'
+        }
+      });
       if (res.ok) setMachineTags(await res.json());
-    } catch (err) {}
+    } catch {}
   }, []);
 
   useEffect(() => { fetchTags(); }, [fetchTags]);
@@ -72,12 +79,12 @@ function DashboardContent() {
     const endpointPath = isCurrentlyMonitored ? 'config-services/remove' : 'config-services';
     if (isCurrentlyMonitored) setAgentsData(prev => prev.filter(srv => !(srv.machineName === machineName && srv.serviceName === serviceName)));
     else setAgentsData(prev => [...prev, { machineName, osVersion: 'Oczekiwanie...', serviceName, state: 'OCZEKIWANIE', lastUpdated: 'Teraz', machineCpu: 0, machineRam: 0, machineDisk: 0, serviceCpu: 0, serviceRam: 0, serviceDisk: 0 }]);
-    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/agents/${endpointPath}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machineName, serviceName }) }); } catch { fetchData(); }
+    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/agents/${endpointPath}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fumetrics_jwt')}` }, body: JSON.stringify({ machineName, serviceName }) }); } catch { fetchData(); }
   };
 
   const handleRemoveService = async (machineName: string, serviceName: string) => {
     setAgentsData(prev => prev.filter(srv => !(srv.machineName === machineName && srv.serviceName === serviceName)));
-    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/agents/config-services/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machineName, serviceName }) }); } catch { fetchData(); }
+    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/agents/config-services/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fumetrics_jwt')}` }, body: JSON.stringify({ machineName, serviceName }) }); } catch { fetchData(); }
   };
 
   const handleServiceAction = async (machineName: string, serviceName: string, action: 'start' | 'stop' | 'restart') => {
@@ -126,11 +133,16 @@ function DashboardContent() {
             <button onClick={() => setActiveTab('infra')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'infra' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}>Serwery</button>
             <button onClick={() => setActiveTab('audit')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'audit' ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}>Historia Operacji</button>
           </div>
+
+          <button onClick={onLogout} title="Wyloguj się" className="p-2.5 rounded-xl bg-white dark:bg-[#121A2F] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 shadow-sm transition-all">
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </div>
 
       {error && <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 p-4 rounded-2xl mb-6 flex items-center gap-3 shadow-sm"><AlertTriangle className="w-5 h-5 shrink-0" /><span>Błąd: {error}</span></div>}
 
+      {/* ZAKŁADKI */}
       {activeTab === 'apps' && <AppsTab summaryData={summaryData} timelineData={timelineData} latestLogs={latestLogs} />}
       {activeTab === 'audit' && <AuditTab />}
       
@@ -194,9 +206,38 @@ function DashboardContent() {
 }
 
 export default function Dashboard() {
+  const [token, setToken] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const savedToken = localStorage.getItem('fumetrics_jwt');
+    if (savedToken) {
+      setToken(savedToken);
+    }
+    setIsCheckingAuth(false);
+  }, []);
+
+  const handleLogin = (newToken: string) => {
+    localStorage.setItem('fumetrics_jwt', newToken);
+    setToken(newToken);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('fumetrics_jwt');
+    setToken(null);
+  };
+
+  if (isCheckingAuth) {
+    return <div className="min-h-screen bg-slate-50 dark:bg-[#0B101E]" />;
+  }
+
+  if (!token) {
+    return <LoginScreen onLoginSuccess={handleLogin} />;
+  }
+
   return (
     <ThemeProvider>
-      <DashboardContent />
+      <DashboardContent onLogout={handleLogout} />
     </ThemeProvider>
   );
 }

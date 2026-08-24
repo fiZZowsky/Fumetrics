@@ -1,7 +1,8 @@
 ﻿namespace Fumetrics.Api.Contracts;
 
 public record AlertRuleDto(
-    string Id, 
+    string Id,
+    string Username,
     string MachineName, 
     string ServiceName, 
     string Metric,

@@ -9,29 +9,90 @@ interface ScannerModalProps {
 }
 
 export function ScannerModal({ groupedAgents, onClose, onToggleService }: ScannerModalProps) {
-  const [machineName, setMachineName] = useState(''); const [ip, setIp] = useState('localhost'); const [port, setPort] = useState('5001');
-  const [services, setServices] = useState<ScannedService[]>([]); const [loading, setLoading] = useState(false); const [searchQuery, setSearchQuery] = useState('');
+  const [machineName, setMachineName] = useState(''); 
+  const [ip, setIp] = useState('localhost'); 
+  const [port, setPort] = useState('5001');
+  const [services, setServices] = useState<ScannedService[]>([]); 
+  const [loading, setLoading] = useState(false); 
+  const [searchQuery, setSearchQuery] = useState('');
   const [savedServers, setSavedServers] = useState<SavedServer[]>([]);
 
-  const fetchSavedServers = async () => { try { const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/saved-servers`); if (res.ok) setSavedServers(await res.json()); } catch {} };
-  useEffect(() => { fetchSavedServers(); }, []);
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('fumetrics_jwt');
+    return {
+      'Authorization': token ? `Bearer ${token}` : '',
+      'Content-Type': 'application/json'
+    };
+  };
+
+  const fetchSavedServers = async () => {
+    try {
+      const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/saved-servers`, {
+        headers: getAuthHeaders()
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSavedServers(data);
+      }
+    } catch (err) {
+      console.error("Błąd pobierania zapisanych serwerów", err);
+    }
+  };
+
+  useEffect(() => { 
+    fetchSavedServers(); 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleScan = async (overrideIp = ip, overridePort = port) => {
-    setLoading(true); setSearchQuery('');
-    try { const res = await fetch(`http://${overrideIp}:${overridePort}/api/agent/services`); if (!res.ok) throw new Error(); setServices(await res.json()); } catch { alert('Nie udało się połączyć z agentem pod wskazanym adresem.'); setServices([]); } finally { setLoading(false); }
+    setLoading(true); 
+    setSearchQuery('');
+    try { 
+      const res = await fetch(`http://${overrideIp}:${overridePort}/api/agent/services`); 
+      if (!res.ok) throw new Error(); 
+      setServices(await res.json()); 
+    } catch { 
+      alert('Nie udało się połączyć z agentem pod wskazanym adresem.'); 
+      setServices([]); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const toggleFavorite = async () => {
     if (!machineName || !ip || !port) return;
     const isSaved = savedServers.some(s => s.machineName === machineName && s.ipAddress === ip && s.port === port);
-    if (isSaved) setSavedServers(prev => prev.filter(s => !(s.machineName === machineName && s.ipAddress === ip && s.port === port)));
-    else setSavedServers(prev => [...prev, { machineName, ipAddress: ip, port }]);
-    try { const endpoint = isSaved ? 'saved-servers/remove' : 'saved-servers'; await fetch(`http://${window.location.hostname}:5170/api/metrics/${endpoint}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machineName, ipAddress: ip, port }) }); } catch { fetchSavedServers(); }
+    
+    if (isSaved) {
+      setSavedServers(prev => prev.filter(s => !(s.machineName === machineName && s.ipAddress === ip && s.port === port)));
+    } else {
+      setSavedServers(prev => [...prev, { machineName, ipAddress: ip, port }]);
+    }
+
+    try { 
+      const endpoint = isSaved ? 'saved-servers/remove' : 'saved-servers'; 
+      await fetch(`http://${window.location.hostname}:5170/api/metrics/${endpoint}`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify({ machineName, ipAddress: ip, port }) 
+      }); 
+    } catch { 
+      fetchSavedServers(); 
+    }
   };
 
   const removeFavorite = async (e: React.MouseEvent, srv: SavedServer) => {
-    e.stopPropagation(); setSavedServers(prev => prev.filter(s => s !== srv));
-    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/saved-servers/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(srv) }); } catch { fetchSavedServers(); }
+    e.stopPropagation(); 
+    setSavedServers(prev => prev.filter(s => s !== srv));
+    try { 
+      await fetch(`http://${window.location.hostname}:5170/api/metrics/saved-servers/remove`, { 
+        method: 'POST', 
+        headers: getAuthHeaders(), 
+        body: JSON.stringify(srv) 
+      }); 
+    } catch { 
+      fetchSavedServers(); 
+    }
   };
 
   const isCurrentSaved = savedServers.some(s => s.machineName === machineName && s.ipAddress === ip && s.port === port);
@@ -42,7 +103,9 @@ export function ScannerModal({ groupedAgents, onClose, onToggleService }: Scanne
     <div className="fixed inset-0 bg-slate-900/20 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-[#121A2F] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-5xl p-8 shadow-2xl flex flex-col max-h-[85vh] transition-colors">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-extrabold flex items-center gap-3 text-slate-800 dark:text-slate-100"><div className="p-2 bg-cyan-100 dark:bg-cyan-500/20 rounded-xl"><Search className="w-6 h-6 text-cyan-600 dark:text-cyan-400" /></div> Skaner Usług Windows</h2>
+          <h2 className="text-2xl font-extrabold flex items-center gap-3 text-slate-800 dark:text-slate-100">
+            <div className="p-2 bg-cyan-100 dark:bg-cyan-500/20 rounded-xl"><Search className="w-6 h-6 text-cyan-600 dark:text-cyan-400" /></div> Skaner Usług Windows
+          </h2>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-500 transition-colors"><X className="w-6 h-6" /></button>
         </div>
         
@@ -83,7 +146,7 @@ export function ScannerModal({ groupedAgents, onClose, onToggleService }: Scanne
             )}
 
             <div className="flex-1 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50 dark:bg-[#0A0F1C] shadow-inner custom-scrollbar">
-               {services.length === 0 ? <div className="text-center py-12 text-slate-500 font-medium">Brak danych. Kliknij "Szukaj Usług", aby pobrać listę z Agenta.</div> : (
+               {services.length === 0 ? <div className="text-center py-12 text-slate-500 font-medium">Brak danych. Kliknij &quot;Szukaj Usług&quot;, aby pobrać listę z Agenta.</div> : (
                   <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 bg-white/90 dark:bg-slate-900/90 text-[10px] uppercase font-extrabold text-slate-500 z-10 backdrop-blur-sm border-b border-slate-200 dark:border-slate-800">
                       <tr><th className="p-4 pl-6">Śledź</th><th className="p-4">Nazwa Usługi</th><th className="p-4">PID</th><th className="p-4">Stan Windows</th></tr>

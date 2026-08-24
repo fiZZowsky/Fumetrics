@@ -3,7 +3,10 @@ using Fumetrics.Api.Endpoints;
 using Fumetrics.Api.Extensions;
 using Fumetrics.Api.Hubs;
 using Fumetrics.Api.Services;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,6 +29,23 @@ builder.Services.AddCors(options =>
         .AllowCredentials());
 });
 
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings["Issuer"],
+            ValidAudience = jwtSettings["Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Secret"]!))
+        };
+    });
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -36,6 +56,9 @@ using (var scope = app.Services.CreateScope())
 
 app.UseRouting();
 app.UseCors("CorsPolicy");
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapGrpcService<TelemetryService>();
 
@@ -51,6 +74,7 @@ app.MapAlertEndpoints();
 app.MapLogEndpoints();
 app.MapAuditEndpoints();
 app.MapEmailTemplateEndpoints();
+app.MapAuthEndpoints(builder.Configuration);
 
 app.MapGet("/", () => "Serwer API działa (w tym gRPC pod portem 50051).");
 

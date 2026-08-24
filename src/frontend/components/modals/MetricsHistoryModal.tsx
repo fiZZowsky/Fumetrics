@@ -24,7 +24,7 @@ export function MetricsHistoryModal({ machineName, onClose }: MetricsHistoryModa
     const fetchHistory = async () => {
       setLoading(true);
       try {
-        const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/agents/${machineName}/history?hours=${hours}`);
+        const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/agents/${machineName}/history?hours=${hours}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('fumetrics_jwt')}` } });
         if (res.ok) {
           const rawData = await res.json();
           const formattedData = rawData.map((d: any) => ({

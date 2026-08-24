@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Bell, X, Trash2, Edit2, Code, Eye, RefreshCw, Save, FolderOpen } from 'lucide-react';
+import { Bell, X, Trash2, Edit2, Code, Eye, RefreshCw, Save } from 'lucide-react';
 import { AlertRule, AgentStatusItem, EmailTemplate } from '@/types/fumetrics';
 
 interface AlertsModalProps {
@@ -90,9 +90,23 @@ export function AlertsModal({ uniqueMachines, groupedAgents, onClose }: AlertsMo
   const [savedTemplates, setSavedTemplates] = useState<EmailTemplate[]>([]);
   const [templateName, setTemplateName] = useState('');
 
-  const fetchRules = async () => {
-    try { const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts`); if (res.ok) setRules(await res.json()); } catch {}
-  };
+const fetchRules = async () => {
+  try {
+    const token = localStorage.getItem('fumetrics_jwt');
+    const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts`, {
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': 'application/json'
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setRules(data);
+    }
+  } catch (err) {
+    console.error("Błąd pobierania reguł alertów", err);
+  }
+};
 
 const fetchTemplates = async () => {
     try { 
@@ -126,7 +140,7 @@ const fetchTemplates = async () => {
     }
     const method = editingId ? 'PUT' : 'POST';
     await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts`, { 
-      method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newRule) 
+      method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fumetrics_jwt')}` }, body: JSON.stringify(newRule) 
     });
     cancelEdit(); fetchRules();
   };
@@ -162,6 +176,7 @@ const loadTemplate = (tmpl: EmailTemplate) => {
     }
   };
 
+  /*
   const deleteTemplate = async (id?: string) => {
     if (!id || !confirm("Usunąć ten szablon z bazy?")) return;
     try {
@@ -169,10 +184,11 @@ const loadTemplate = (tmpl: EmailTemplate) => {
       fetchTemplates();
     } catch {}
   };
+  */
 
   const removeRule = async (id: string) => {
     if(!confirm("Usunąć regułę?")) return;
-    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts/${id}`, { method: 'DELETE' }); fetchRules(); } catch {}
+    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('fumetrics_jwt')}` } }); fetchRules(); } catch {}
   };
 
   const editRule = (rule: AlertRule) => { setNewRule({ ...rule, htmlTemplate: rule.htmlTemplate || DEFAULT_TEMPLATE }); setEditingId(rule.id!); };

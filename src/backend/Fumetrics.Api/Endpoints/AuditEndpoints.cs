@@ -1,4 +1,4 @@
-﻿using Fumetrics.Api.Contracts;
+using Fumetrics.Api.Contracts;
 using Fumetrics.Api.Repositories;
 using Microsoft.AspNetCore.Mvc;
 
@@ -15,7 +15,8 @@ public static class AuditEndpoints
 
         group.MapPost("/", async ([FromBody] AuditLogRequest req, HttpContext context, [FromServices] AuditRepository repo) =>
         {
-            var ip = context.Connection.RemoteIpAddress?.ToString() ?? "Unknown";
+            var ipAddr = context.Connection.RemoteIpAddress;
+            var ip = ipAddr != null ? (ipAddr.IsIPv4MappedToIPv6 ? ipAddr.MapToIPv4().ToString() : ipAddr.ToString()) : "Unknown";
             await repo.InsertLogAsync(req.Action, req.TargetMachine, req.TargetService, ip);
             return Results.Ok(new { success = true });
         });

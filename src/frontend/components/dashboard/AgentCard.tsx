@@ -45,10 +45,10 @@ export function AgentCard({ machineName, services, tags = [], onOpenHistory, onS
   const handleAddTag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTagInput.trim()) return;
-    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/machines/tags`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machineName, tag: newTagInput.trim() }) }); setNewTagInput(''); setIsAddingTag(false); onRefreshData(); } catch {}
+    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/machines/tags`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fumetrics_jwt')}` }, body: JSON.stringify({ machineName, tag: newTagInput.trim() }) }); setNewTagInput(''); setIsAddingTag(false); onRefreshData(); } catch {}
   };
   const handleRemoveTag = async (tag: string) => {
-    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/machines/tags/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ machineName, tag }) }); onRefreshData(); } catch {}
+    try { await fetch(`http://${window.location.hostname}:5170/api/metrics/machines/tags/remove`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fumetrics_jwt')}` }, body: JSON.stringify({ machineName, tag }) }); onRefreshData(); } catch {}
   };
 
   return (

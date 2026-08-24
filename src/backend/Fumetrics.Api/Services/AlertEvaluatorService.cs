@@ -16,11 +16,11 @@ public class AlertEvaluatorService(
         var rules = await alertRepo.GetAllAsync();
         if (!rules.Any()) return;
 
-        var latestMetrics = (await agentRepo.GetLatestStatusAsync()).ToList();
-        var currentKeys = new HashSet<string>();
-
         foreach (var rule in rules)
         {
+            var latestMetrics = (await agentRepo.GetLatestStatusAsync(rule.Username)).ToList();
+            if (!latestMetrics.Any()) continue;
+
             var machineMetrics = latestMetrics.Where(m => m.MachineName == rule.MachineName).ToList();
             if (!machineMetrics.Any()) continue;
 
@@ -30,7 +30,6 @@ public class AlertEvaluatorService(
             foreach (var metric in targets)
             {
                 string stateKey = $"{rule.Id}_{metric.MachineName}_{metric.ServiceName}";
-                currentKeys.Add(stateKey);
 
                 bool isViolating = EvaluateRule(rule, metric, out var reason, out var currentVal);
 
@@ -53,7 +52,7 @@ public class AlertEvaluatorService(
                             try
                             {
                                 await historyRepo.InsertAsync(new AlertHistoryDto(
-                                    Guid.NewGuid().ToString(), rule.Id, rule.MachineName, metric.ServiceName, "FIRING", reason, DateTime.UtcNow
+                                    Guid.NewGuid().ToString(), rule.Username, rule.Id, rule.MachineName, metric.ServiceName, "FIRING", reason, DateTime.UtcNow
                                 ));
                             }
                             catch (Exception ex) { logger.LogError(ex, "Błąd zapisu do historii alertów (FIRING)!"); }
@@ -79,7 +78,7 @@ public class AlertEvaluatorService(
                             try
                             {
                                 await historyRepo.InsertAsync(new AlertHistoryDto(
-                                    Guid.NewGuid().ToString(), rule.Id, rule.MachineName, metric.ServiceName, "RESOLVED", "Parametry wróciły do normy", DateTime.UtcNow
+                                    Guid.NewGuid().ToString(), rule.Username, rule.Id, rule.MachineName, metric.ServiceName, "RESOLVED", "Parametry wróciły do normy", DateTime.UtcNow
                                 ));
                             }
                             catch (Exception ex) { logger.LogError(ex, "Błąd zapisu do historii alertów (RESOLVED)!"); }
@@ -89,9 +88,6 @@ public class AlertEvaluatorService(
                 }
             }
         }
-
-        var keysToRemove = stateManager.ActiveStates.Keys.Except(currentKeys).ToList();
-        foreach (var key in keysToRemove) stateManager.ActiveStates.Remove(key);
     }
 
     private bool EvaluateRule(AlertRuleDto rule, AgentServiceStatusDto metric, out string reason, out string current)

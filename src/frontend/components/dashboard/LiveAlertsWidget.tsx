@@ -18,7 +18,13 @@ export function LiveAlertsWidget() {
   useEffect(() => {
     const fetchActiveAlerts = async () => {
       try {
-        const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts/active`);
+        const token = localStorage.getItem('fumetrics_jwt');
+        const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts/active`, {
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json'
+          }
+        });
         if (res.ok) {
           setAlerts(await res.json());
         }
@@ -50,7 +56,6 @@ export function LiveAlertsWidget() {
 
       <div className="flex-1 flex flex-col gap-3 overflow-y-auto custom-scrollbar pr-2">
         {alerts.length === 0 ? (
-          /* ZIELONY STAN - WSZYSTKO DZIAŁA */
           <div className="flex-1 flex flex-col items-center justify-center text-center p-6 border border-emerald-500/20 bg-emerald-500/5 rounded-2xl">
             <div className="p-4 bg-emerald-500/20 rounded-full mb-4">
               <ShieldCheck className="w-12 h-12 text-emerald-500" />
@@ -70,7 +75,6 @@ export function LiveAlertsWidget() {
                     : 'border-amber-500/50 bg-amber-500/10'
                 }`}
               >
-                {/* Efekt podświetlenia tła */}
                 <div className={`absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-20 -mr-10 -mt-10 pointer-events-none ${isFiring ? 'bg-red-500' : 'bg-amber-500'}`}></div>
 
                 <div className="flex justify-between items-start mb-2 relative z-10">

@@ -1,4 +1,4 @@
-﻿using Fumetrics.Agent.Models;
+using Fumetrics.Agent.Models;
 using Fumetrics.Agent.Services.Interfaces;
 using Fumetrics.Contracts;
 using System.Diagnostics;
@@ -63,12 +63,16 @@ public class WindowsSystemMonitor : ISystemService
             if (sc.Status == ServiceControllerStatus.Stopped)
             {
                 sc.Start();
-                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10));
+                await Task.Run(() => sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10)));
                 return true;
             }
             return false;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Błąd uruchamiania usługi {serviceName}: {ex.Message}");
+            return false;
+        }
     }
 
     public async Task<bool> StopServiceAsync(string serviceName)
@@ -79,7 +83,7 @@ public class WindowsSystemMonitor : ISystemService
             if (sc.Status == ServiceControllerStatus.Running)
             {
                 sc.Stop();
-                sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+                await Task.Run(() => sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10)));
                 return true;
             }
             return false;
@@ -95,10 +99,10 @@ public class WindowsSystemMonitor : ISystemService
             if (sc.Status == ServiceControllerStatus.Running)
             {
                 sc.Stop();
-                sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10));
+                await Task.Run(() => sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(10)));
             }
             sc.Start();
-            sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10));
+            await Task.Run(() => sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10)));
             return true;
         }
         catch { return false; }
@@ -121,7 +125,7 @@ public class WindowsSystemMonitor : ISystemService
                 }
             }
         }
-        catch (Exception ex) { }
+        catch (Exception) { }
 
         foreach (var sc in ServiceController.GetServices())
         {
@@ -165,7 +169,7 @@ public class WindowsSystemMonitor : ISystemService
                     }
                     _processTracking[pid] = (cpuTime, now, currentIo);
                 }
-                catch (Exception ex) { }
+                catch (Exception) { }
             }
 
             list.Add(new SystemServiceDetail

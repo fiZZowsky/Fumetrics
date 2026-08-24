@@ -2,6 +2,7 @@
 
 public record AlertHistoryDto(
     string Id,
+    string Username,
     string RuleId,
     string MachineName,
     string ServiceName,

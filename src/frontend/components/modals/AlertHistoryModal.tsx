@@ -10,19 +10,27 @@ export function AlertHistoryModal({ onClose }: AlertHistoryModalProps) {
   const [history, setHistory] = useState<AlertHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts/history`);
-        if (res.ok) {
-          setHistory(await res.json());
+  const fetchHistory = async () => {
+    try {
+      const token = localStorage.getItem('fumetrics_jwt');
+      const res = await fetch(`http://${window.location.hostname}:5170/api/metrics/alerts/history`, {
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json'
         }
-      } catch (err) {
-        console.error("Błąd pobierania historii alertów", err);
-      } finally {
-        setLoading(false);
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setHistory(data);
       }
-    };
+    } catch (err) {
+      console.error("Błąd pobierania historii alertów", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchHistory();
   }, []);
 

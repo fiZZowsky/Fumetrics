@@ -1,4 +1,4 @@
-﻿using ClickHouse.Client.Copy;
+using ClickHouse.Client.Copy;
 using Fumetrics.Api.Contracts;
 using Fumetrics.Api.Data;
 
@@ -21,15 +21,15 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
         await bulkCopy.WriteToServerAsync(rows);
     }
 
-    public async Task<IEnumerable<AgentServiceStatusDto>> GetLatestStatusAsync()
+    public async Task<IEnumerable<AgentServiceStatusDto>> GetLatestStatusAsync(string username)
     {
         var statuses = new List<AgentServiceStatusDto>();
         using var connection = dbFactory.CreateConnection();
         using var command = connection.CreateCommand();
 
-        command.CommandText = @"
+        command.CommandText = $@"
             SELECT c.MachineName, m.OsVersion, c.ServiceName, m.State, toString(m.Timestamp), m.MachineCpu, m.MachineRam, m.MachineDisk, m.ServiceCpu, m.ServiceRam, m.ServiceDisk
-            FROM (SELECT DISTINCT MachineName, ServiceName FROM monitored_services_config) c
+            FROM (SELECT DISTINCT MachineName, ServiceName FROM monitored_services_config WHERE Username = '{username}') c
             LEFT JOIN (SELECT * FROM agent_metrics ORDER BY Timestamp DESC LIMIT 1 BY MachineName, ServiceName) m 
             ON c.MachineName = m.MachineName AND c.ServiceName = m.ServiceName
             ORDER BY c.MachineName ASC, c.ServiceName ASC";
@@ -47,7 +47,6 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
         }
         return statuses;
     }
-
     public async Task<IEnumerable<AgentHardwareHistoryDto>> GetAgentHardwareHistoryAsync(string machineName, string range = "1h")
     {
         var history = new List<AgentHardwareHistoryDto>();
@@ -98,7 +97,18 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
         return history;
     }
 
-    public async Task<List<string>> GetMonitoredServicesForMachineAsync(string machineName)
+    public async Task<List<string>> GetMonitoredServicesForMachineAsync(string username, string machineName)
+    {
+        var services = new List<string>();
+        using var connection = dbFactory.CreateConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT DISTINCT ServiceName FROM monitored_services_config WHERE Username = '{username}' AND MachineName = '{machineName}'";
+        using var reader = await command.ExecuteReaderAsync();
+        while (await reader.ReadAsync()) services.Add(reader.GetString(0));
+        return services;
+    }
+
+    public async Task<List<string>> GetAllMonitoredServicesForMachineAsync(string machineName)
     {
         var services = new List<string>();
         using var connection = dbFactory.CreateConnection();
@@ -125,23 +135,23 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
         return Convert.ToInt64(await command.ExecuteScalarAsync());
     }
 
-    public async Task<IEnumerable<SavedServerDto>> GetSavedServersAsync()
+    public async Task<IEnumerable<SavedServerDto>> GetSavedServersAsync(string username)
     {
         var servers = new List<SavedServerDto>();
         using var connection = dbFactory.CreateConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT DISTINCT MachineName, IpAddress, Port FROM saved_servers";
+        command.CommandText = $"SELECT DISTINCT MachineName, IpAddress, Port FROM saved_servers WHERE Username = '{username}'";
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync()) servers.Add(new SavedServerDto(reader.GetString(0), reader.GetString(1), reader.GetString(2)));
         return servers;
     }
 
-    public async Task<Dictionary<string, List<string>>> GetAllMachineTagsAsync()
+    public async Task<Dictionary<string, List<string>>> GetAllMachineTagsAsync(string username)
     {
         var tagsMap = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
         using var connection = dbFactory.CreateConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT MachineName, Tag FROM machine_tags FINAL";
+        command.CommandText = $"SELECT MachineName, Tag FROM machine_tags FINAL WHERE Username = '{username}'";
         using var reader = await command.ExecuteReaderAsync();
         while (await reader.ReadAsync())
         {

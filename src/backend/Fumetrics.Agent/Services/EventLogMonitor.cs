@@ -1,4 +1,4 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using System.Text;
 using System.Text.Json;
@@ -78,7 +78,7 @@ public class EventLogMonitor : BackgroundService
 
             await _httpClient.PostAsync("/api/metrics/logs", content);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
         }
     }

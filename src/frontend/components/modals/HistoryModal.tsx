@@ -21,7 +21,7 @@ export function HistoryModal({ machineName, serviceName, onClose }: HistoryModal
         const url = serviceName 
           ? `http://${window.location.hostname}:5170/api/metrics/agents/${machineName}/services/${serviceName}/history?range=${range}`
           : `http://${window.location.hostname}:5170/api/metrics/agents/${machineName}/history?range=${range}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${localStorage.getItem('fumetrics_jwt')}` } });
         if (res.ok) setHistory(await res.json());
       } catch (err) {
         console.error(err);
