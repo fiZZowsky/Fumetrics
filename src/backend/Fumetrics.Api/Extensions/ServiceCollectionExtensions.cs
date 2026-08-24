@@ -20,6 +20,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<AlertRepository>();
         services.AddScoped<AuditRepository>();
         services.AddScoped<EmailTemplateRepository>();
+        services.AddScoped<AlertHistoryRepository>();
 
         services.AddScoped<EmailService>();
         services.AddSingleton<AlertStateManager>();

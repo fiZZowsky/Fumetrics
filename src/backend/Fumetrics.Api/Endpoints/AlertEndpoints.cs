@@ -18,7 +18,6 @@ public static class AlertEndpoints
             var activeAlerts = stateManager.ActiveStates.Select(kvp =>
             {
                 var parts = kvp.Key.Split('_', 3);
-
                 return new
                 {
                     RuleId = parts.Length > 0 ? parts[0] : "N/A",
@@ -36,6 +35,9 @@ public static class AlertEndpoints
 
             return Results.Ok(activeAlerts);
         });
+
+        group.MapGet("/history", async ([FromServices] AlertHistoryRepository repo) =>
+            Results.Ok(await repo.GetLatestAsync(200)));
 
         group.MapPost("/", async ([FromBody] AlertRuleDto rule, [FromServices] AlertRepository repo) =>
         {

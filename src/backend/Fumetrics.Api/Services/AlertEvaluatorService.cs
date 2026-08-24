@@ -3,7 +3,13 @@ using Fumetrics.Api.Repositories;
 
 namespace Fumetrics.Api.Services;
 
-public class AlertEvaluatorService(AgentRepository agentRepo, AlertRepository alertRepo, AlertStateManager stateManager, EmailService emailService, ILogger<AlertEvaluatorService> logger)
+public class AlertEvaluatorService(
+    AgentRepository agentRepo,
+    AlertRepository alertRepo,
+    AlertStateManager stateManager,
+    EmailService emailService,
+    AlertHistoryRepository historyRepo,
+    ILogger<AlertEvaluatorService> logger)
 {
     public async Task ProcessAlertsAsync()
     {
@@ -43,6 +49,14 @@ public class AlertEvaluatorService(AgentRepository agentRepo, AlertRepository al
                             state.IsFiring = true;
                             state.LastSent = DateTime.UtcNow;
                             await TriggerEmailAsync(rule, metric, reason, currentVal, true, false);
+
+                            try
+                            {
+                                await historyRepo.InsertAsync(new AlertHistoryDto(
+                                    Guid.NewGuid().ToString(), rule.Id, rule.MachineName, metric.ServiceName, "FIRING", reason, DateTime.UtcNow
+                                ));
+                            }
+                            catch (Exception ex) { logger.LogError(ex, "Błąd zapisu do historii alertów (FIRING)!"); }
                         }
                     }
                     else
@@ -61,6 +75,14 @@ public class AlertEvaluatorService(AgentRepository agentRepo, AlertRepository al
                         if (state.IsFiring)
                         {
                             await TriggerEmailAsync(rule, metric, "Wszystkie parametry w normie", metric.State, false, false);
+
+                            try
+                            {
+                                await historyRepo.InsertAsync(new AlertHistoryDto(
+                                    Guid.NewGuid().ToString(), rule.Id, rule.MachineName, metric.ServiceName, "RESOLVED", "Parametry wróciły do normy", DateTime.UtcNow
+                                ));
+                            }
+                            catch (Exception ex) { logger.LogError(ex, "Błąd zapisu do historii alertów (RESOLVED)!"); }
                         }
                         stateManager.ActiveStates.Remove(stateKey);
                     }

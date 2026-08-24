@@ -40,12 +40,14 @@ public class DatabaseInitializer(ClickHouseConnectionFactory dbFactory, ILogger<
             ) ENGINE = ReplacingMergeTree() ORDER BY Id",
 
             @"CREATE TABLE IF NOT EXISTS alert_history (
-                Timestamp DateTime64(3), RuleId String
-            ) ENGINE = MergeTree() ORDER BY (RuleId, Timestamp)",
-
-            @"CREATE TABLE IF NOT EXISTS alert_history (
-                Timestamp DateTime64(3), RuleId String
-            ) ENGINE = MergeTree() ORDER BY (RuleId, Timestamp)",
+                Id String,
+                RuleId String,
+                MachineName String,
+                ServiceName String,
+                State String,
+                Reason String,
+                Timestamp DateTime
+            ) ENGINE = MergeTree() ORDER BY Timestamp",
 
             @"CREATE TABLE IF NOT EXISTS machine_tags (
                 MachineName String, Tag String

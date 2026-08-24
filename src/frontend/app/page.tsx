@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Activity, Bell, Search, AlertTriangle, Tag, CheckCircle2, XCircle, Sun, Moon } from 'lucide-react';
+import { Activity, Bell, Search, AlertTriangle, Tag, CheckCircle2, XCircle, Sun, Moon, Clock } from 'lucide-react';
 import { useFumetricsData } from '@/hooks/useFumetricsData';
 import { AppsTab } from '@/components/dashboard/AppsTab';
 import { AgentCard } from '@/components/dashboard/AgentCard';
@@ -12,6 +12,7 @@ import { AlertsModal } from '@/components/modals/AlertsModal';
 import { AgentStatusItem } from '@/types/fumetrics';
 import { ThemeProvider, useTheme } from '@/hooks/useTheme';
 import { LiveAlertsWidget } from '@/components/dashboard/LiveAlertsWidget';
+import { AlertHistoryModal } from '@/components/modals/AlertHistoryModal';
 
 function DashboardContent() {
   const { summaryData, timelineData, latestLogs, agentsData, setAgentsData, fetchData, error } = useFumetricsData();
@@ -21,6 +22,7 @@ function DashboardContent() {
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [historyTarget, setHistoryTarget] = useState<{ machine: string, service?: string | null } | null>(null);
+  const [isAlertHistoryModalOpen, setIsAlertHistoryModalOpen] = useState(false);
   
   const [machineTags, setMachineTags] = useState<Record<string, string[]>>({});
   const [selectedTagFilter, setSelectedTagFilter] = useState<string>('all');
@@ -108,6 +110,10 @@ function DashboardContent() {
             <Bell className="w-4 h-4" /> Alerty
           </button>
           
+          <button onClick={() => setIsAlertHistoryModalOpen(true)} className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-200 dark:hover:bg-indigo-500/30 text-xs px-4 py-2.5 rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-sm">
+            <Clock className="w-4 h-4" /> Historia Alertów
+          </button>
+
           {activeTab === 'infra' && (
             <button onClick={() => setIsScanModalOpen(true)} className="bg-linear-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-cyan-900/20">
               <Search className="w-4 h-4" /> Skanuj Usługi
@@ -167,6 +173,7 @@ function DashboardContent() {
       {historyTarget && <HistoryModal machineName={historyTarget.machine} serviceName={historyTarget.service} onClose={() => setHistoryTarget(null)} />}
       {isScanModalOpen && <ScannerModal groupedAgents={groupedAgents} onClose={() => setIsScanModalOpen(false)} onToggleService={handleToggleService} />}
       {isAlertModalOpen && <AlertsModal uniqueMachines={uniqueMachines} groupedAgents={groupedAgents} onClose={() => setIsAlertModalOpen(false)} />}
+      {isAlertHistoryModalOpen && <AlertHistoryModal onClose={() => setIsAlertHistoryModalOpen(false)} />}
     </main>
   );
 }

@@ -7,3 +7,4 @@ export interface ScannedService { serviceName: string; displayName: string; proc
 export interface SavedServer { machineName: string; ipAddress: string; port: string; }
 export interface AlertRule { id?: string; machineName: string; serviceName: string; metric: string; threshold: string; email: string; delayMinutes: number; repeatMinutes: number; htmlTemplate?: string; }
 export interface EmailTemplate { id?: string; name: string; htmlContent: string; }
+export interface AlertHistoryEntry { id: string; ruleId: string; machineName: string; serviceName: string; state: 'FIRING' | 'RESOLVED'; reason: string; timestamp: string; }
