@@ -109,7 +109,6 @@ Domyślne dane logowania to:
 
 Oto jak prezentuje się Fumetrics w działaniu. Utwórz folder `docs` w głównym katalogu projektu i umieść w nim swoje zrzuty ekranu, nazywając je odpowiednio, a następnie odkomentuj poniższe linie (usuń znaki `<!--` oraz `-->`), aby zdjęcia pojawiły się w README!
 
-<!--
 ### Główny Panel
 ![Główny Panel](docs/dashboard.png)
 *Widok główny przedstawiający wszystkie podłączone serwery, ich zasoby oraz aktywne alerty.*
@@ -125,6 +124,5 @@ Oto jak prezentuje się Fumetrics w działaniu. Utwórz folder `docs` w główny
 ### Panel Administratora
 ![Panel Administratora](docs/admin.png)
 *Zarządzanie użytkownikami, rolami oraz szczegółowymi uprawnieniami w systemie.*
--->
 
 ---
