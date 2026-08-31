@@ -12,7 +12,7 @@ interface HistoryModalProps {
 export function HistoryModal({ machineName, serviceName, onClose }: HistoryModalProps) {
   const [history, setHistory] = useState<AgentHistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [range, setRange] = useState<'1h' | '24h' | '30d'>('1h');
+  const [range, setRange] = useState<'1h' | '24h' | '7d' | '30d'>('1h');
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -66,6 +66,7 @@ export function HistoryModal({ machineName, serviceName, onClose }: HistoryModal
               <select value={range} onChange={e => setRange(e.target.value as any)} className="bg-slate-800 text-slate-200 text-xs rounded-md px-2 py-1 border border-slate-700 outline-none cursor-pointer">
                 <option value="1h">Ostatnia godzina</option>
                 <option value="24h">Ostatnie 24h</option>
+                <option value="7d">Ostatni tydzień</option>
                 <option value="30d">Ostatni miesiąc</option>
               </select>
             </div>

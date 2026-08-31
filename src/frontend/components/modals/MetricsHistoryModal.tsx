@@ -29,7 +29,9 @@ export function MetricsHistoryModal({ machineName, onClose }: MetricsHistoryModa
           const rawData = await res.json();
           const formattedData = rawData.map((d: any) => ({
             ...d,
-            formattedTime: new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit' }).format(new Date(d.timestamp + 'Z'))
+            formattedTime: hours > 24 
+              ? new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(d.timestamp + 'Z'))
+              : new Intl.DateTimeFormat('pl-PL', { hour: '2-digit', minute: '2-digit' }).format(new Date(d.timestamp + 'Z'))
           }));
           setData(formattedData);
         }
@@ -88,9 +90,15 @@ export function MetricsHistoryModal({ machineName, onClose }: MetricsHistoryModa
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 bg-slate-100 dark:bg-[#0A0F1C] border border-slate-200 dark:border-slate-800 rounded-xl p-1">
               <Clock className="w-4 h-4 text-slate-500 ml-2" />
-              {[6, 12, 24].map(h => (
-                <button key={h} onClick={() => setHours(h)} className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${hours === h ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}>
-                  {h}h
+              {[
+                { h: 6, label: '6h' },
+                { h: 12, label: '12h' },
+                { h: 24, label: '24h' },
+                { h: 168, label: '7d' },
+                { h: 720, label: '30d' }
+              ].map(opt => (
+                <button key={opt.h} onClick={() => setHours(opt.h)} className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all ${hours === opt.h ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}>
+                  {opt.label}
                 </button>
               ))}
             </div>

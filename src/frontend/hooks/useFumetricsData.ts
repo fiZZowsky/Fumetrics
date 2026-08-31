@@ -29,8 +29,11 @@ export function useFumetricsData() {
         fetch(`${baseUrl}/agents`, { headers })
       ]);
       
+      if (summaryRes.status === 401 || timelineRes.status === 401 || latestRes.status === 401 || agentsRes.status === 401) {
+        throw new Error('UNAUTHORIZED');
+      }
       if (!summaryRes.ok || !timelineRes.ok || !latestRes.ok || !agentsRes.ok) {
-        throw new Error('Błąd pobierania danych z API (wymagana autoryzacja)');
+        throw new Error('Błąd pobierania danych z API');
       }
       
       setSummaryData(await summaryRes.json());

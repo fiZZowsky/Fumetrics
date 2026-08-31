@@ -12,9 +12,10 @@ interface AgentCardProps {
   onRemoveService: (machineName: string, serviceName: string) => void; 
   onRefreshData: () => void;
   onOpenMetrics?: () => void;
+  canManageServices?: boolean;
 }
 
-export function AgentCard({ machineName, services, tags = [], onOpenHistory, onServiceAction, onRemoveService, onRefreshData, onOpenMetrics }: AgentCardProps) {
+export function AgentCard({ machineName, services, tags = [], onOpenHistory, onServiceAction, onRemoveService, onRefreshData, onOpenMetrics, canManageServices = true }: AgentCardProps) {
   const machineMetrics = services[0];
   const [newTagInput, setNewTagInput] = useState('');
   const [isAddingTag, setIsAddingTag] = useState(false);
@@ -133,6 +134,7 @@ export function AgentCard({ machineName, services, tags = [], onOpenHistory, onS
                   </div>
                 )}
                 
+                {canManageServices && (
                 <div className="flex items-center gap-1">
                   {!isHost && !offline && srv.state.toUpperCase() !== 'RUNNING' && <button onClick={() => onServiceAction(machineName, srv.serviceName, 'start')} className="text-slate-400 hover:text-emerald-500 dark:hover:text-emerald-400 p-1.5 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800" title="Uruchom"><Play className="w-4 h-4" /></button>}
                   {!isHost && !offline && srv.state.toUpperCase() === 'RUNNING' && (
@@ -140,6 +142,7 @@ export function AgentCard({ machineName, services, tags = [], onOpenHistory, onS
                   )}
                   <button onClick={() => onRemoveService(machineName, srv.serviceName)} className="text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 p-1.5 bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-slate-200 dark:border-slate-800 ml-1" title="Przestań monitorować"><Trash2 className="w-4 h-4" /></button>
                 </div>
+                )}
               </div>
             </div>
           )})}

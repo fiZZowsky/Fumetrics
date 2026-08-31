@@ -59,18 +59,35 @@ public class DatabaseInitializer(ClickHouseConnectionFactory dbFactory, ILogger<
 
             @"CREATE TABLE IF NOT EXISTS email_templates (
                 Username String, Id String, Name String, HtmlContent String
-            ) ENGINE = ReplacingMergeTree() ORDER BY (Username, Id)"
+            ) ENGINE = ReplacingMergeTree() ORDER BY (Username, Id)",
+            @"CREATE TABLE IF NOT EXISTS roles (
+                Name String,
+                Permissions Array(String),
+                IsDefault UInt8
+            ) ENGINE = ReplacingMergeTree() ORDER BY Name"
         };
 
         var alterScripts = new[]
         {
-            "ALTER TABLE alert_history ADD COLUMN IF NOT EXISTS Username String FIRST"
+            "ALTER TABLE alert_history ADD COLUMN IF NOT EXISTS Username String FIRST",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS RoleName String DEFAULT 'Viewer'"
         };
 
-        foreach (var script in scripts.Concat(alterScripts))
+        var seedScripts = new[]
         {
-            command.CommandText = script;
-            await command.ExecuteNonQueryAsync();
+            "INSERT INTO roles (Name, Permissions, IsDefault) VALUES ('Admin', ['ManageRoles', 'ManageUsers', 'ManageAlerts', 'StartStopServices'], 1)",
+            "INSERT INTO roles (Name, Permissions, IsDefault) VALUES ('Viewer', [], 1)",
+            "ALTER TABLE users UPDATE RoleName = 'Admin' WHERE Username = 'admin'"
+        };
+
+        foreach (var script in scripts.Concat(alterScripts).Concat(seedScripts))
+        {
+            try {
+                command.CommandText = script;
+                await command.ExecuteNonQueryAsync();
+            } catch (Exception ex) {
+                logger.LogWarning($"Błąd wykonania skryptu: {ex.Message}");
+            }
         }
     }
 }

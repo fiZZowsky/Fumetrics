@@ -15,11 +15,39 @@ import { LiveAlertsWidget } from '@/components/dashboard/LiveAlertsWidget';
 import { AlertHistoryModal } from '@/components/modals/AlertHistoryModal';
 import { MetricsHistoryModal } from '@/components/modals/MetricsHistoryModal';
 import { LoginScreen } from '@/components/auth/LoginScreen';
+import { AdminTab } from '@/components/dashboard/AdminTab';
 
 function DashboardContent({ onLogout }: { onLogout: () => void }) {
   const { summaryData, timelineData, latestLogs, agentsData, setAgentsData, fetchData, error } = useFumetricsData();
-  const [activeTab, setActiveTab] = useState<'apps' | 'infra' | 'audit'>('infra');
+  const [activeTab, setActiveTab] = useState<'apps' | 'infra' | 'audit' | 'admin'>('infra');
   const { theme, toggleTheme } = useTheme();
+
+  const [permissions, setPermissions] = useState<string[]>([]);
+  const [userRole, setUserRole] = useState<string>('Viewer');
+  
+  useEffect(() => {
+    const token = localStorage.getItem('fumetrics_jwt');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const perms = payload.Permission || [];
+        setPermissions(Array.isArray(perms) ? perms : [perms]);
+        const role = payload.role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] || 'Viewer';
+        setUserRole(role);
+      } catch (e) {
+        console.error("Błąd dekodowania JWT", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (error === 'UNAUTHORIZED') {
+      onLogout();
+    }
+  }, [error, onLogout]);
+
+  const hasPerm = (p: string) => permissions.includes(p);
+  const isAdminOrManager = userRole === 'Admin' || hasPerm('ManageRoles') || hasPerm('ManageUsers');
 
   const [isAlertModalOpen, setIsAlertModalOpen] = useState(false);
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
@@ -114,15 +142,17 @@ const fetchTags = useCallback(async () => {
             {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
           </button>
 
-          <button onClick={() => setIsAlertModalOpen(true)} className="bg-amber-100 dark:bg-amber-600/20 text-amber-700 dark:text-amber-500 border border-amber-200 dark:border-amber-600/30 hover:bg-amber-200 dark:hover:bg-amber-600/30 text-xs px-4 py-2.5 rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-sm">
-            <Bell className="w-4 h-4" /> Alerty
-          </button>
+          {hasPerm('ManageAlerts') && (
+            <button onClick={() => setIsAlertModalOpen(true)} className="bg-amber-100 dark:bg-amber-600/20 text-amber-700 dark:text-amber-500 border border-amber-200 dark:border-amber-600/30 hover:bg-amber-200 dark:hover:bg-amber-600/30 text-xs px-4 py-2.5 rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-sm">
+              <Bell className="w-4 h-4" /> Alerty
+            </button>
+          )}
           
           <button onClick={() => setIsAlertHistoryModalOpen(true)} className="bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/30 hover:bg-indigo-200 dark:hover:bg-indigo-500/30 text-xs px-4 py-2.5 rounded-xl font-semibold transition-colors flex items-center gap-1.5 shadow-sm">
             <Clock className="w-4 h-4" /> Historia Alertów
           </button>
 
-          {activeTab === 'infra' && (
+          {activeTab === 'infra' && hasPerm('StartStopServices') && (
             <button onClick={() => setIsScanModalOpen(true)} className="bg-linear-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs px-5 py-2.5 rounded-xl font-bold transition-all flex items-center gap-1.5 shadow-lg shadow-cyan-900/20">
               <Search className="w-4 h-4" /> Skanuj Usługi
             </button>
@@ -132,6 +162,7 @@ const fetchTags = useCallback(async () => {
             <button onClick={() => setActiveTab('apps')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'apps' ? 'bg-cyan-50 dark:bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}>Strumień Logów</button>
             <button onClick={() => setActiveTab('infra')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'infra' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}>Serwery</button>
             <button onClick={() => setActiveTab('audit')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'audit' ? 'bg-purple-50 dark:bg-purple-500/10 text-purple-600 dark:text-purple-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}>Historia Operacji</button>
+            {isAdminOrManager && <button onClick={() => setActiveTab('admin')} className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${activeTab === 'admin' ? 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'}`}>Panel admina</button>}
           </div>
 
           <button onClick={onLogout} title="Wyloguj się" className="p-2.5 rounded-xl bg-white dark:bg-[#121A2F] border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 shadow-sm transition-all">
@@ -140,11 +171,12 @@ const fetchTags = useCallback(async () => {
         </div>
       </div>
 
-      {error && <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 p-4 rounded-2xl mb-6 flex items-center gap-3 shadow-sm"><AlertTriangle className="w-5 h-5 shrink-0" /><span>Błąd: {error}</span></div>}
+      {error && error !== 'UNAUTHORIZED' && <div className="bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-200 p-4 rounded-2xl mb-6 flex items-center gap-3 shadow-sm"><AlertTriangle className="w-5 h-5 shrink-0" /><span>Błąd: {error}</span></div>}
 
       {/* ZAKŁADKI */}
       {activeTab === 'apps' && <AppsTab summaryData={summaryData} timelineData={timelineData} latestLogs={latestLogs} />}
       {activeTab === 'audit' && <AuditTab />}
+      {activeTab === 'admin' && <AdminTab />}
       
       {activeTab === 'infra' && (
         <div className="space-y-6">
@@ -185,6 +217,7 @@ const fetchTags = useCallback(async () => {
                 onRemoveService={handleRemoveService} 
                 onRefreshData={() => { fetchData(); fetchTags(); }} 
                 onOpenMetrics={() => setMetricsTargetMachine(machineName)}
+                canManageServices={userRole === 'Admin' || hasPerm('StartStopServices')}
               />
             ))}
           </div>

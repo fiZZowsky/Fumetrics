@@ -44,8 +44,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings["Secret"]!))
         };
     });
-builder.Services.AddAuthorization();
-
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireStartStopServices", policy => policy.RequireAssertion(ctx => ctx.User.IsInRole("Admin") || ctx.User.HasClaim("Permission", "StartStopServices")));
+    options.AddPolicy("RequireManageAlerts", policy => policy.RequireAssertion(ctx => ctx.User.IsInRole("Admin") || ctx.User.HasClaim("Permission", "ManageAlerts")));
+});
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -75,6 +78,8 @@ app.MapLogEndpoints();
 app.MapAuditEndpoints();
 app.MapEmailTemplateEndpoints();
 app.MapAuthEndpoints(builder.Configuration);
+app.MapRoleEndpoints();
+app.MapUserEndpoints();
 
 app.MapGet("/", () => "Serwer API działa (w tym gRPC pod portem 50051).");
 

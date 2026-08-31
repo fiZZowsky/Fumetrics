@@ -50,9 +50,9 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
     public async Task<IEnumerable<AgentHardwareHistoryDto>> GetAgentHardwareHistoryAsync(string machineName, string range = "1h")
     {
         var history = new List<AgentHardwareHistoryDto>();
-        string groupingFunction = range switch { "30d" => "toStartOfDay(Timestamp)", "24h" => "toStartOfHour(Timestamp)", _ => "toStartOfMinute(Timestamp)" };
-        string timeFormat = range switch { "30d" => "'%Y-%m-%d'", "24h" => "'%m-%d %H:%i'", _ => "'%H:%i'" };
-        string timeFilter = range switch { "30d" => "INTERVAL 30 DAY", "24h" => "INTERVAL 24 HOUR", _ => "INTERVAL 1 HOUR" };
+        string groupingFunction = range switch { "30d" => "toStartOfDay(Timestamp)", "7d" => "toStartOfHour(Timestamp)", "24h" => "toStartOfMinute(Timestamp)", _ => "toStartOfMinute(Timestamp)" };
+        string timeFormat = range switch { "30d" => "'%Y-%m-%d'", "7d" => "'%m-%d %H:00'", "24h" => "'%m-%d %H:%i'", _ => "'%H:%i'" };
+        string timeFilter = range switch { "30d" => "INTERVAL 30 DAY", "7d" => "INTERVAL 7 DAY", "24h" => "INTERVAL 24 HOUR", _ => "INTERVAL 1 HOUR" };
 
         var sql = $@"
             SELECT formatDateTime({groupingFunction}, {timeFormat}) as Time, avg(MachineCpu), avg(MachineRam), avg(MachineDisk)
@@ -75,9 +75,9 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
     public async Task<IEnumerable<AgentHardwareHistoryDto>> GetServiceHardwareHistoryAsync(string machineName, string serviceName, string range = "1h")
     {
         var history = new List<AgentHardwareHistoryDto>();
-        string groupingFunction = range switch { "30d" => "toStartOfDay(Timestamp)", "24h" => "toStartOfHour(Timestamp)", _ => "toStartOfMinute(Timestamp)" };
-        string timeFormat = range switch { "30d" => "'%Y-%m-%d'", "24h" => "'%m-%d %H:%i'", _ => "'%H:%i'" };
-        string timeFilter = range switch { "30d" => "INTERVAL 30 DAY", "24h" => "INTERVAL 24 HOUR", _ => "INTERVAL 1 HOUR" };
+        string groupingFunction = range switch { "30d" => "toStartOfDay(Timestamp)", "7d" => "toStartOfHour(Timestamp)", "24h" => "toStartOfMinute(Timestamp)", _ => "toStartOfMinute(Timestamp)" };
+        string timeFormat = range switch { "30d" => "'%Y-%m-%d'", "7d" => "'%m-%d %H:00'", "24h" => "'%m-%d %H:%i'", _ => "'%H:%i'" };
+        string timeFilter = range switch { "30d" => "INTERVAL 30 DAY", "7d" => "INTERVAL 7 DAY", "24h" => "INTERVAL 24 HOUR", _ => "INTERVAL 1 HOUR" };
 
         var sql = $@"
             SELECT formatDateTime({groupingFunction}, {timeFormat}) as Time, avg(ServiceCpu), avg(ServiceRam), avg(ServiceDisk)
@@ -169,9 +169,13 @@ public class AgentRepository(ClickHouseConnectionFactory dbFactory)
         using var connection = dbFactory.CreateConnection();
         using var command = connection.CreateCommand();
 
+        string groupingFunction = "toStartOfFiveMinute(Timestamp)";
+        if (hoursBack > 168) groupingFunction = "toStartOfHour(Timestamp)";
+        else if (hoursBack > 48) groupingFunction = "toStartOfFifteenMinutes(Timestamp)";
+
         command.CommandText = $@"
         SELECT 
-            toStartOfFiveMinute(Timestamp) as TimeBin,
+            {groupingFunction} as TimeBin,
             avg(MachineCpu) as AvgCpu,
             avg(MachineRam) as AvgRam,
             avg(MachineDisk) as AvgDisk
